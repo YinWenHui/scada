@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AQUA DIGITAL TWIN — SCADA v5.0</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap');
+:root{--bg:#050d14;--panel:#07111c;--border:#0e3d5c;--teal:#00e5ff;--green:#00ff88;--yellow:#ffe600;--red:#ff3c5a;--orange:#ff8c00;--text:#c8e8f5;--dim:#4a7a9a;--grid:rgba(0,200,255,0.04);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+/* TOPBAR */
+.topbar{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:linear-gradient(90deg,#020c14,#071825,#020c14);border-bottom:1px solid var(--border);}
+.logo{font-family:'Orbitron',monospace;font-weight:900;font-size:18px;color:var(--teal);letter-spacing:3px;text-shadow:0 0 20px rgba(0,229,255,0.5);}
+.logo span{color:var(--green);}
+.tc-info{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--dim);text-align:center;}
+.tr{display:flex;align-items:center;gap:20px;font-family:'Share Tech Mono',monospace;font-size:11px;}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.8);}}
+.clk{color:var(--teal);font-size:13px;}
+/* TABS */
+.tabs{position:relative;z-index:10;display:flex;align-items:center;gap:2px;padding:6px 20px 0;background:var(--panel);border-bottom:1px solid var(--border);}
+.tab{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:1.5px;padding:8px 18px;cursor:pointer;border:1px solid var(--border);border-bottom:none;color:var(--dim);background:var(--bg);transition:all .2s;}
+.tab.active{color:var(--teal);background:#091622;border-color:var(--teal);border-bottom:1px solid #091622;box-shadow:0 0 12px rgba(0,229,255,.2);margin-bottom:-1px;}
+.tab:hover:not(.active){color:var(--text);border-color:#1a5a7a;background:var(--panel);}
+.tab.cfg.active{color:var(--yellow);border-color:var(--yellow);box-shadow:0 0 12px rgba(255,230,0,.2);}
+/* MAIN */
+.main{position:relative;z-index:1;flex:1;display:flex;overflow:hidden;}
+.tc{display:none;width:100%;height:100%;}
+.tc.active{display:flex;}
+/* SIDEBAR */
+.sb{width:218px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
+.sb::-webkit-scrollbar{width:3px;}
+.sb::-webkit-scrollbar-thumb{background:var(--border);}
+.sec{border-bottom:1px solid var(--border);padding:9px 11px;}
+.stt{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--dim);margin-bottom:9px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.kr{display:flex;align-items:center;justify-content:space-between;padding:4px 0;}
+.kl{color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:10px;}
+.kv{font-family:'Share Tech Mono',monospace;font-size:12px;font-weight:bold;}
+.kv.g{color:var(--green);text-shadow:0 0 5px rgba(0,255,136,.4);}
+.kv.t{color:var(--teal);text-shadow:0 0 5px rgba(0,229,255,.4);}
+.kv.y{color:var(--yellow);}
+.kv.r{color:var(--red);}
+.bw{margin:3px 0;}
+.blr{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);font-family:'Share Tech Mono',monospace;}
+.bt{height:5px;background:#0a2535;border-radius:3px;margin-top:2px;overflow:hidden;}
+.bf{height:100%;border-radius:3px;transition:width .8s ease;}
+.bf.t{background:linear-gradient(90deg,#006aff,#00e5ff);}
+.bf.g{background:linear-gradient(90deg,#00a855,#00ff88);}
+.bf.y{background:linear-gradient(90deg,#cc9900,#ffe600);}
+.bf.r{background:linear-gradient(90deg,#cc0020,#ff3c5a);}
+.ai{display:flex;align-items:center;gap:7px;padding:4px 0;font-size:10px;font-family:'Share Tech Mono',monospace;border-bottom:1px solid rgba(14,61,92,.4);}
+.ad{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.ad.c{background:var(--red);box-shadow:0 0 4px var(--red);animation:pulse 1s infinite;}
+.ad.w{background:var(--yellow);box-shadow:0 0 4px var(--yellow);}
+.ad.ok{background:var(--green);}
+.at{color:var(--dim);flex:1;line-height:1.3;}
+/* DIAGRAM */
+.da{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.dtb{display:flex;align-items:center;justify-content:space-between;padding:5px 14px;background:var(--panel);border-bottom:1px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);flex-shrink:0;}
+.dtb strong{font-family:'Orbitron',monospace;color:var(--teal);font-size:11px;letter-spacing:1px;}
+svg#scada{width:100%;height:100%;display:block;}
+/* RIGHT PANEL */
+.rp{width:198px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
+.rp::-webkit-scrollbar{width:3px;}
+.rp::-webkit-scrollbar-thumb{background:var(--border);}
+.rps{border-bottom:1px solid var(--border);padding:9px 11px;}
+.rpt{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--dim);margin-bottom:9px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.dc{background:var(--bg);border:1px solid var(--border);border-radius:3px;padding:7px;margin-bottom:5px;}
+.dc:hover{border-color:var(--teal);}
+.dch{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;}
+.dn{font-family:'Orbitron',monospace;font-size:9px;color:var(--teal);}
+.ds{font-size:9px;font-family:'Share Tech Mono',monospace;padding:2px 5px;border-radius:2px;}
+.ds.run{background:rgba(0,255,136,.15);color:var(--green);border:1px solid rgba(0,255,136,.3);}
+.ds.stop{background:rgba(255,60,90,.15);color:var(--red);border:1px solid rgba(255,60,90,.3);}
+.dd{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);display:flex;justify-content:space-between;padding:2px 0;}
+.dd span:last-child{color:var(--text);}
+/* STATUS BAR */
+.stbar{position:relative;z-index:10;display:flex;align-items:center;gap:18px;padding:3px 18px;background:#020c14;border-top:1px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);flex-shrink:0;}
+.stbar b{color:var(--teal);}
+/* SVG PIPES */
+.pc{stroke:#0a5c8a;stroke-width:8;fill:none;stroke-linecap:round;}
+.ph{stroke:#7a2200;stroke-width:8;fill:none;stroke-linecap:round;}
+.pf{stroke:#00c8ff;stroke-width:4;fill:none;stroke-dasharray:12 8;animation:fM 1.5s linear infinite;}
+.pfd{stroke:#00c8ff;stroke-width:4;fill:none;stroke-dasharray:12 8;animation:fD 1.5s linear infinite;}
+.pfs{stroke:#007aaa;stroke-width:3;fill:none;stroke-dasharray:8 12;animation:fM 3s linear infinite;}
+.pfw{stroke:#8b6914;stroke-width:3;fill:none;stroke-dasharray:6 10;animation:fM 2.5s linear infinite;}
+@keyframes fM{from{stroke-dashoffset:0;}to{stroke-dashoffset:-40;}}
+@keyframes fD{from{stroke-dashoffset:0;}to{stroke-dashoffset:40;}}
+.tl{font-family:'Orbitron',monospace;font-size:9px;fill:#00e5ff;letter-spacing:1px;}
+.dl{font-family:'Orbitron',monospace;font-size:8px;fill:#4a7a9a;letter-spacing:.5px;}
+.zl{font-family:'Orbitron',monospace;font-size:10px;fill:rgba(0,229,255,.3);letter-spacing:2px;}
+.sbox{fill:#07111c;stroke:#0e3d5c;stroke-width:1;}
+@keyframes pS{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}
+@keyframes pS2{0%{transform:rotate(0deg);}100%{transform:rotate(-360deg);}}
+.af{animation:aF 1s ease-in-out infinite;}
+@keyframes aF{0%,100%{opacity:1;}50%{opacity:.3;}}
+/* ====== CONFIG TAB ====== */
+.cfgwrap{flex:1;display:flex;overflow:hidden;background:var(--bg);}
+.cfgl{width:250px;background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0;}
+.cfgc{flex:1;overflow-y:auto;padding:13px;}
+.cfgr{width:250px;background:var(--panel);border-left:1px solid var(--border);overflow-y:auto;flex-shrink:0;}
+.cfgl::-webkit-scrollbar,.cfgc::-webkit-scrollbar,.cfgr::-webkit-scrollbar{width:3px;}
+.cfgl::-webkit-scrollbar-thumb,.cfgc::-webkit-scrollbar-thumb,.cfgr::-webkit-scrollbar-thumb{background:var(--border);}
+.csec{border-bottom:1px solid var(--border);padding:11px 12px;}
+.ctit{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--yellow);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid rgba(255,230,0,.2);display:flex;align-items:center;gap:7px;}
+.ctit::before{content:'';width:3px;height:11px;background:var(--yellow);border-radius:2px;flex-shrink:0;}
+.ctit.tl2{color:var(--teal);}
+.ctit.tl2::before{background:var(--teal);}
+.crow{margin-bottom:10px;}
+.clbl{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);margin-bottom:5px;display:flex;justify-content:space-between;}
+.clv{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--teal);font-weight:bold;}
+.clv.y{color:var(--yellow);}
+.clv.r{color:var(--red);}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:3px;outline:none;cursor:pointer;background:linear-gradient(90deg,var(--teal) var(--pct,50%),#0a2535 var(--pct,50%));}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--teal);box-shadow:0 0 7px rgba(0,229,255,.6);cursor:pointer;}
+input[type=range].ys{background:linear-gradient(90deg,var(--yellow) var(--pct,50%),#0a2535 var(--pct,50%));}
+input[type=range].ys::-webkit-slider-thumb{background:var(--yellow);}
+input[type=range].rs{background:linear-gradient(90deg,var(--red) var(--pct,50%),#0a2535 var(--pct,50%));}
+input[type=range].rs::-webkit-slider-thumb{background:var(--red);}
+input[type=range].gs{background:linear-gradient(90deg,var(--green) var(--pct,50%),#0a2535 var(--pct,50%));}
+input[type=range].gs::-webkit-slider-thumb{background:var(--green);}
+.trow{display:flex;align-items:center;justify-content:space-between;padding:5px 0;}
+.tlbl{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);}
+.tog{position:relative;width:38px;height:20px;cursor:pointer;}
+.tog input{opacity:0;width:0;height:0;}
+.ttrack{position:absolute;inset:0;background:#0a2535;border-radius:10px;transition:.3s;border:1px solid var(--border);}
+.tog input:checked+.ttrack{background:rgba(0,255,136,.2);border-color:var(--green);}
+.tknob{position:absolute;top:3px;left:3px;width:14px;height:14px;background:#4a7a9a;border-radius:50%;transition:.3s;}
+.tog input:checked~.tknob{transform:translateX(18px);background:var(--green);box-shadow:0 0 6px rgba(0,255,136,.6);}
+select.csel{width:100%;background:#0a1e2e;border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:10px;padding:6px 8px;border-radius:3px;outline:none;cursor:pointer;}
+select.csel:focus{border-color:var(--teal);}
+select.csel option{background:#0a1e2e;}
+.capply{width:100%;padding:9px;background:rgba(0,229,255,.1);border:1px solid var(--teal);color:var(--teal);font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;cursor:pointer;border-radius:3px;transition:all .2s;margin-top:5px;}
+.capply:hover{background:rgba(0,229,255,.2);box-shadow:0 0 12px rgba(0,229,255,.3);}
+.creset{width:100%;padding:7px;background:rgba(255,60,90,.08);border:1px solid rgba(255,60,90,.3);color:var(--red);font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;cursor:pointer;border-radius:3px;margin-top:5px;}
+.creset:hover{background:rgba(255,60,90,.15);}
+.psec{background:var(--bg);border:1px solid var(--border);border-radius:4px;margin-bottom:9px;overflow:hidden;}
+.phdr{background:var(--panel);padding:6px 11px;font-family:'Orbitron',monospace;font-size:9px;color:var(--dim);letter-spacing:1px;border-bottom:1px solid var(--border);}
+.pbdy{padding:9px 11px;}
+.pr{display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-family:'Share Tech Mono',monospace;font-size:10px;}
+.pk{color:var(--dim);}
+.pv{font-weight:bold;}
+.pv.ok{color:var(--green);}
+.pv.w{color:var(--yellow);}
+.pv.c{color:var(--red);}
+.pv.i{color:var(--teal);}
+.chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:9px;font-size:9px;font-family:'Share Tech Mono',monospace;margin:2px;border:1px solid;}
+.chip.on{background:rgba(0,255,136,.1);color:var(--green);border-color:rgba(0,255,136,.3);}
+.chip.off{background:rgba(255,60,90,.1);color:var(--red);border-color:rgba(255,60,90,.3);}
+.chip.w{background:rgba(255,230,0,.1);color:var(--yellow);border-color:rgba(255,230,0,.3);}
+.chip.i{background:rgba(0,229,255,.08);color:var(--teal);border-color:rgba(0,229,255,.2);}
+.toast{position:fixed;bottom:46px;right:18px;background:#071825;border:1px solid var(--yellow);color:var(--yellow);font-family:'Orbitron',monospace;font-size:10px;letter-spacing:1px;padding:9px 16px;border-radius:4px;z-index:9999;transform:translateY(20px);opacity:0;transition:all .3s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+.ph-stub{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;font-family:'Orbitron',monospace;color:var(--dim);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">AQUA<span>TWIN</span> <span style="font-size:11px;color:#4a7a9a;font-weight:400">DIGITAL TWIN</span></div>
+  <div class="tc-info">SITE: FACTORY COMPLEX A — WATER TREATMENT &amp; DISTRIBUTION SYSTEM<br><span style="color:#0a4a6e">NODE: SCT-PRIMARY-01 &nbsp;|&nbsp; PLC: SIMATIC S7-1500 &nbsp;|&nbsp; NET: PROFINET</span></div>
+  <div class="tr">
+    <div style="display:flex;align-items:center;gap:6px"><div class="sdot"></div><span id="sys-badge" style="color:var(--green)">ONLINE</span></div>
+    <div>OPR: <span style="color:var(--teal)">SYS_ADM</span></div>
+    <div class="clk" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="swTab('twin')">⬡ DIGITAL TWIN</div>
+  <div class="tab" onclick="swTab('trend')">▦ DATA TREND</div>
+  <div class="tab" onclick="swTab('alarms')">⚠ ALARMS</div>
+  <div class="tab cfg" onclick="swTab('cfg')">⚙ CONFIG / SIM</div>
+  <div class="tab" onclick="swTab('rep')">📋 REPORTS</div>
+</div>
+
+<div class="main">
+
+<!-- TWIN TAB -->
+<div class="tc active" id="tab-twin">
+  <div class="sb">
+    <div class="sec"><div class="stt">◈ SYSTEM KPIs</div>
+      <div class="kr"><span class="kl">TOTAL FLOW</span><span class="kv t" id="kpi-flow">248.3 m³/h</span></div>
+      <div class="kr"><span class="kl">PRESSURE</span><span class="kv g" id="kpi-pres">3.8 bar</span></div>
+      <div class="kr"><span class="kl">DAILY CONS.</span><span class="kv t">1,842 m³</span></div>
+      <div class="kr"><span class="kl">EFFICIENCY</span><span class="kv g" id="kpi-eff">94.2 %</span></div>
+      <div class="kr"><span class="kl">WATER LOSS</span><span class="kv y" id="kpi-loss">5.8 %</span></div>
+      <div class="kr"><span class="kl">ACTIVE PUMPS</span><span class="kv g" id="kpi-pumps">3 / 4</span></div>
+    </div>
+    <div class="sec"><div class="stt">◈ TANK LEVELS</div>
+      <div class="bw"><div class="blr"><span>INTAKE T-01</span><span id="t1-pct">78%</span></div><div class="bt"><div class="bf t" id="t1-bar" style="width:78%"></div></div></div>
+      <div class="bw"><div class="blr"><span>CLEAR T-02</span><span id="t2-pct">91%</span></div><div class="bt"><div class="bf g" id="t2-bar" style="width:91%"></div></div></div>
+      <div class="bw"><div class="blr"><span>PROCESS T-03</span><span id="t3-pct">55%</span></div><div class="bt"><div class="bf t" id="t3-bar" style="width:55%"></div></div></div>
+      <div class="bw"><div class="blr"><span>FIRE RESERVE</span><span id="tfire-pct">100%</span></div><div class="bt"><div class="bf g" id="tfire-bar" style="width:100%"></div></div></div>
+      <div class="bw"><div class="blr"><span>WASTEWATER</span><span id="tww-pct">42%</span></div><div class="bt"><div class="bf y" id="tww-bar" style="width:42%"></div></div></div>
+    </div>
+    <div class="sec"><div class="stt">◈ WATER QUALITY</div>
+      <div class="kr"><span class="kl">pH LEVEL</span><span class="kv g" id="kpi-ph">7.24</span></div>
+      <div class="kr"><span class="kl">TURBIDITY</span><span class="kv g" id="kpi-turb">0.18 NTU</span></div>
+      <div class="kr"><span class="kl">CHLORINE</span><span class="kv t" id="kpi-cl">0.52 mg/L</span></div>
+      <div class="kr"><span class="kl">CONDUCTIVITY</span><span class="kv t" id="kpi-cond">428 µS/cm</span></div>
+      <div class="kr"><span class="kl">TEMP</span><span class="kv t" id="kpi-temp">18.4 °C</span></div>
+    </div>
+    <div class="sec"><div class="stt">◈ ALARMS <span id="alm-cnt" style="color:var(--yellow)">[3]</span></div>
+      <div id="alm-list">
+        <div class="ai"><div class="ad c"></div><div class="at">FT-203 HIGH FLOW<br><span style="color:#2a4a5a">14:02:11</span></div></div>
+        <div class="ai"><div class="ad w"></div><div class="at">PT-105 WARN PRESS<br><span style="color:#2a4a5a">13:55:44</span></div></div>
+        <div class="ai"><div class="ad w"></div><div class="at">LT-301 LOW LEVEL<br><span style="color:#2a4a5a">13:41:08</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="da">
+    <div class="dtb">
+      <div><strong>WATER SYSTEM P&amp;ID</strong> &nbsp;|&nbsp; REV.5.0 &nbsp;|&nbsp; MAIN PLANT &nbsp;<span id="sim-badge" style="display:none;color:var(--yellow)">⚙ SIM MODE</span></div>
+      <div><span id="live-badge" style="color:var(--green)">● LIVE</span> &nbsp;|&nbsp; SCAN: <span id="scan-disp">500ms</span></div>
+    </div>
+    <svg id="scada" viewBox="0 0 900 520" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <rect width="900" height="520" fill="#050d14"/>
+      <!-- ZONES -->
+      <rect x="10" y="10" width="175" height="500" fill="rgba(0,100,180,.04)" stroke="rgba(0,200,255,.07)" stroke-width="1" rx="4"/>
+      <rect x="195" y="10" width="185" height="245" fill="rgba(0,80,40,.05)" stroke="rgba(0,255,136,.07)" stroke-width="1" rx="4"/>
+      <rect x="390" y="10" width="195" height="500" fill="rgba(0,60,120,.04)" stroke="rgba(0,180,255,.07)" stroke-width="1" rx="4"/>
+      <rect x="595" y="10" width="155" height="500" fill="rgba(0,60,120,.04)" stroke="rgba(255,140,0,.06)" stroke-width="1" rx="4"/>
+      <rect x="195" y="265" width="185" height="245" fill="rgba(100,40,0,.04)" stroke="rgba(200,80,0,.06)" stroke-width="1" rx="4"/>
+      <rect x="760" y="10" width="130" height="500" fill="rgba(0,40,100,.04)" stroke="rgba(0,100,200,.06)" stroke-width="1" rx="4"/>
+      <text x="97" y="26" text-anchor="middle" class="zl">INTAKE</text>
+      <text x="288" y="26" text-anchor="middle" class="zl">TREATMENT</text>
+      <text x="488" y="26" text-anchor="middle" class="zl">DISTRIBUTION</text>
+      <text x="672" y="26" text-anchor="middle" class="zl">PROCESS</text>
+      <text x="288" y="281" text-anchor="middle" class="zl">WASTE</text>
+      <text x="825" y="26" text-anchor="middle" class="zl">FIRE</text>
+      <!-- SOURCE -->
+      <ellipse cx="60" cy="80" rx="30" ry="12" fill="rgba(0,100,180,.3)" stroke="#0a5c8a" stroke-width="1.5"/>
+      <ellipse cx="60" cy="77" rx="25" ry="8" fill="rgba(0,150,220,.2)" stroke="#0a7ab0"/>
+      <text x="60" y="73" text-anchor="middle" class="dl" style="font-size:7px">SOURCE</text>
+      <text x="60" y="97" text-anchor="middle" class="dl">RAW WATER</text>
+      <!-- INTAKE PIPES -->
+      <line x1="60" y1="92" x2="60" y2="130" class="pc" stroke-width="6"/>
+      <line x1="60" y1="92" x2="60" y2="130" id="pf-src" class="pf"/>
+      <!-- SCREEN -->
+      <rect x="44" y="130" width="32" height="18" fill="#071825" stroke="#0a5c8a" stroke-width="1.5" rx="2"/>
+      <line x1="50" y1="134" x2="50" y2="144" stroke="#1a7aaa"/><line x1="56" y1="132" x2="56" y2="146" stroke="#1a7aaa"/><line x1="62" y1="132" x2="62" y2="146" stroke="#1a7aaa"/><line x1="68" y1="134" x2="68" y2="144" stroke="#1a7aaa"/>
+      <text x="60" y="160" text-anchor="middle" class="dl">SCR-01</text>
+      <line x1="60" y1="148" x2="60" y2="175" class="pc" stroke-width="6"/>
+      <line x1="60" y1="148" x2="60" y2="175" id="pf-scr" class="pf"/>
+      <!-- TANK T-01 -->
+      <rect x="28" y="175" width="64" height="90" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="30" y="177" width="60" height="2" fill="#0e5c8a" rx="1"/>
+      <rect id="t1w" x="30" y="211" width="60" height="52" fill="rgba(0,100,200,.35)" rx="2" style="filter:drop-shadow(0 0 5px rgba(0,229,255,.4))"/>
+      <rect id="t1s" x="30" y="209" width="60" height="4" fill="rgba(0,200,255,.4)"/>
+      <line x1="88" y1="183" x2="92" y2="183" stroke="#0e3d5c"/><line x1="88" y1="203" x2="92" y2="203" stroke="#0e3d5c"/><line x1="88" y1="223" x2="92" y2="223" stroke="#0e3d5c"/><line x1="88" y1="243" x2="92" y2="243" stroke="#0e3d5c"/>
+      <text id="t1tv" x="60" y="222" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:12px;fill:#00e5ff;font-weight:bold">78%</text>
+      <text x="60" y="235" text-anchor="middle" class="tl">T-01</text>
+      <text x="60" y="247" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">2,400 m³</text>
+      <text x="60" y="274" text-anchor="middle" class="dl">INTAKE TANK</text>
+      <rect x="92" y="190" width="38" height="22" class="sbox" rx="2"/>
+      <text x="111" y="199" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">LT-01</text>
+      <text id="lt01v" x="111" y="209" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#00e5ff">78.4%</text>
+      <!-- VALVE VLV-01 -->
+      <g transform="translate(60,168)">
+        <polygon id="v01t" points="0,-7 7,7 -7,7" fill="#00ff88" stroke="#005a30"/>
+        <polygon id="v01b" points="0,7 7,-7 -7,-7" fill="#00ff88" stroke="#005a30"/>
+        <text x="0" y="20" text-anchor="middle" class="dl">VLV-01</text>
+      </g>
+      <!-- PIPE TO P-01 -->
+      <line x1="60" y1="265" x2="60" y2="315" class="pc" stroke-width="6"/>
+      <line x1="60" y1="265" x2="60" y2="315" id="pf-p1s" class="pf"/>
+      <rect x="44" y="290" width="32" height="18" fill="#071825" stroke="#0a5c8a" stroke-width="1.5" rx="2"/>
+      <circle cx="60" cy="299" r="6" fill="none" stroke="#00e5ff" stroke-width="1.5"/>
+      <text x="60" y="303" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:7px;fill:#00e5ff">↺</text>
+      <text x="60" y="318" text-anchor="middle" class="dl">FT-01</text>
+      <!-- PUMP P-01 -->
+      <g id="p1g" style="filter:drop-shadow(0 0 4px rgba(0,255,136,.6))">
+        <circle cx="60" cy="350" r="20" fill="#050d14" stroke="#005a30" stroke-width="2"/>
+        <g id="p1r" style="animation:pS 1s linear infinite;transform-origin:60px 350px">
+          <line x1="60" y1="333" x2="60" y2="345" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="60" y1="355" x2="60" y2="367" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="43" y1="350" x2="55" y2="350" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="65" y1="350" x2="77" y2="350" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="48" y1="338" x2="56" y2="346" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="64" y1="354" x2="72" y2="362" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="72" y1="338" x2="64" y2="346" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="56" y1="354" x2="48" y2="362" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+        </g>
+        <circle cx="60" cy="350" r="5" fill="#00ff88" id="p1d"/>
+      </g>
+      <text x="60" y="380" text-anchor="middle" class="dl">P-01</text>
+      <text id="p1sv" x="60" y="390" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00ff88">75 kW RUN</text>
+      <!-- P-01 DISCHARGE -->
+      <line x1="80" y1="350" x2="195" y2="350" class="pc" stroke-width="6"/>
+      <line x1="80" y1="350" x2="195" y2="350" id="pf-p1d" class="pf"/>
+      <!-- TREATMENT -->
+      <rect x="200" y="35" width="40" height="55" fill="#050d18" stroke="#1a3d5c" stroke-width="1.5" rx="3"/>
+      <rect x="202" y="60" width="36" height="28" fill="rgba(0,200,80,.2)" rx="2"/>
+      <text x="220" y="52" text-anchor="middle" class="dl">CHEM</text>
+      <text x="220" y="62" text-anchor="middle" class="dl">DOSING</text>
+      <line x1="220" y1="90" x2="220" y2="110" stroke="#2a8a50" stroke-width="3"/>
+      <line x1="220" y1="90" x2="220" y2="110" stroke="#00a855" stroke-width="1.5" stroke-dasharray="4 4" id="pf-chem"/>
+      <rect x="200" y="110" width="55" height="70" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="202" y="112" width="51" height="2" fill="#0e5c8a" rx="1"/>
+      <rect x="202" y="145" width="51" height="33" fill="rgba(0,140,180,.3)" rx="2"/>
+      <line x1="227" y1="130" x2="227" y2="178" stroke="#0e3d5c" stroke-width="1.5"/>
+      <line x1="215" y1="155" x2="240" y2="155" stroke="#1a7aaa" stroke-width="2" stroke-linecap="round"/>
+      <line x1="218" y1="148" x2="237" y2="162" stroke="#1a7aaa" stroke-width="1.5" stroke-linecap="round"/>
+      <text x="227" y="193" text-anchor="middle" class="tl">COAG</text>
+      <rect x="265" y="110" width="65" height="70" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="267" y="112" width="61" height="2" fill="#0e5c8a" rx="1"/>
+      <rect x="267" y="148" width="61" height="30" fill="rgba(0,100,160,.35)" rx="2"/>
+      <rect x="267" y="173" width="61" height="5" fill="rgba(80,60,20,.5)" rx="2"/>
+      <text x="297" y="193" text-anchor="middle" class="tl">SEDIM</text>
+      <rect x="200" y="198" width="130" height="52" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="202" y="215" width="126" height="10" fill="rgba(200,180,100,.2)" rx="1"/>
+      <rect x="202" y="226" width="126" height="8" fill="rgba(150,130,80,.2)" rx="1"/>
+      <rect x="202" y="235" width="126" height="12" fill="rgba(100,80,40,.15)" rx="1"/>
+      <text x="265" y="210" text-anchor="middle" class="dl">SAND FILTER — SF-01</text>
+      <line x1="195" y1="350" x2="195" y2="145" class="pc" stroke-width="6"/>
+      <line x1="195" y1="350" x2="195" y2="145" id="pf-rise" class="pfd"/>
+      <line x1="195" y1="145" x2="200" y2="145" class="pc" stroke-width="6"/>
+      <line x1="255" y1="145" x2="265" y2="145" class="pc" stroke-width="5"/>
+      <line x1="255" y1="145" x2="265" y2="145" id="pf-coag" class="pfs"/>
+      <line x1="297" y1="180" x2="297" y2="198" class="pc" stroke-width="5"/>
+      <line x1="297" y1="180" x2="297" y2="198" id="pf-sed" class="pf"/>
+      <line x1="330" y1="224" x2="380" y2="224" class="pc" stroke-width="6"/>
+      <line x1="330" y1="224" x2="380" y2="224" id="pf-fout" class="pf"/>
+      <line x1="380" y1="224" x2="380" y2="290" class="pc" stroke-width="6"/>
+      <line x1="380" y1="224" x2="380" y2="290" id="pf-tdn" class="pf"/>
+      <rect x="210" y="258" width="110" height="28" fill="#060f1a" stroke="#0e3d5c" stroke-width="1.5" rx="12"/>
+      <ellipse cx="227" cy="272" rx="14" ry="10" fill="rgba(120,0,200,.2)" stroke="rgba(160,0,255,.5)" stroke-width="1.5" id="uvg"/>
+      <text x="265" y="276" text-anchor="middle" style="font-family:'Orbitron',monospace;font-size:8px;fill:rgba(180,100,255,.9);letter-spacing:1px">UV / CHLOR</text>
+      <text x="265" y="295" text-anchor="middle" class="dl">DISINFECTION</text>
+      <line x1="265" y1="250" x2="265" y2="258" class="pc" stroke-width="5"/>
+      <line x1="265" y1="250" x2="265" y2="258" id="pf-uv" class="pf"/>
+      <rect x="338" y="228" width="34" height="20" class="sbox" rx="2"/>
+      <text x="355" y="237" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">AT-01</text>
+      <text id="at01v" x="355" y="247" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#00ff88">pH 7.24</text>
+      <!-- TANK T-02 -->
+      <rect x="397" y="50" width="75" height="105" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="399" y="52" width="71" height="2" fill="#0e5c8a" rx="1"/>
+      <rect id="t2w" x="399" y="60" width="71" height="93" fill="rgba(0,120,210,.4)" rx="2" style="filter:drop-shadow(0 0 5px rgba(0,229,255,.4))"/>
+      <rect id="t2s" x="399" y="58" width="71" height="4" fill="rgba(0,200,255,.5)"/>
+      <text id="t2tv" x="434" y="110" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:14px;fill:#00e5ff;font-weight:bold">91%</text>
+      <text x="434" y="126" text-anchor="middle" class="tl">T-02</text>
+      <text x="434" y="139" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">3,200 m³</text>
+      <text x="434" y="163" text-anchor="middle" class="dl">CLEAR WATER</text>
+      <rect x="476" y="62" width="34" height="20" class="sbox" rx="2"/>
+      <text x="493" y="71" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">LT-02</text>
+      <text id="lt02v" x="493" y="81" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#00ff88">91.2%</text>
+      <line x1="380" y1="100" x2="397" y2="100" class="pc" stroke-width="6"/>
+      <line x1="380" y1="100" x2="397" y2="100" id="pf-t2in" class="pf"/>
+      <line x1="380" y1="100" x2="380" y2="224" class="pc" stroke-width="6"/>
+      <!-- PUMP P-02 -->
+      <g id="p2g" style="filter:drop-shadow(0 0 4px rgba(0,255,136,.6))">
+        <circle cx="434" cy="220" r="18" fill="#050d14" stroke="#005a30" stroke-width="2"/>
+        <g id="p2r" style="animation:pS2 1.2s linear infinite;transform-origin:434px 220px">
+          <line x1="434" y1="205" x2="434" y2="215" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="434" y1="225" x2="434" y2="235" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="419" y1="220" x2="429" y2="220" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="439" y1="220" x2="449" y2="220" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="424" y1="209" x2="430" y2="215" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="438" y1="225" x2="444" y2="231" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="444" y1="209" x2="438" y2="215" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="430" y1="225" x2="424" y2="231" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+        </g>
+        <circle cx="434" cy="220" r="5" fill="#00ff88" id="p2d"/>
+      </g>
+      <text x="434" y="247" text-anchor="middle" class="dl">P-02</text>
+      <text id="p2sv" x="434" y="257" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00ff88">110kW RUN</text>
+      <line x1="434" y1="155" x2="434" y2="202" class="pc" stroke-width="6"/>
+      <line x1="434" y1="155" x2="434" y2="202" id="pf-t2p2" class="pf"/>
+      <!-- PUMP P-03 (backup) -->
+      <circle id="p3c" cx="530" cy="220" r="18" fill="#050d14" stroke="#2a4a2a" stroke-width="1.5"/>
+      <g id="p3r" style="transform-origin:530px 220px">
+        <line x1="530" y1="205" x2="530" y2="215" stroke="#4a4a4a" stroke-width="2" stroke-linecap="round"/>
+        <line x1="530" y1="225" x2="530" y2="235" stroke="#4a4a4a" stroke-width="2" stroke-linecap="round"/>
+        <line x1="515" y1="220" x2="525" y2="220" stroke="#4a4a4a" stroke-width="2" stroke-linecap="round"/>
+        <line x1="535" y1="220" x2="545" y2="220" stroke="#4a4a4a" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <circle id="p3d" cx="530" cy="220" r="5" fill="#4a4a4a"/>
+      <text x="530" y="247" text-anchor="middle" class="dl">P-03</text>
+      <text id="p3sv" x="530" y="257" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a4a4a">STANDBY</text>
+      <!-- MANIFOLD -->
+      <line x1="452" y1="220" x2="548" y2="220" stroke="#0a5c8a" stroke-width="8"/>
+      <line x1="452" y1="220" x2="548" y2="220" id="pf-mnf" class="pf"/>
+      <rect x="553" y="195" width="22" height="50" fill="#070f1a" stroke="#0e3d5c" stroke-width="2" rx="8"/>
+      <text x="564" y="265" text-anchor="middle" class="dl">PRV-01</text>
+      <line x1="548" y1="220" x2="580" y2="220" class="pc" stroke-width="6"/>
+      <line x1="548" y1="220" x2="580" y2="220" id="pf-prv" class="pf"/>
+      <line x1="575" y1="220" x2="575" y2="270" class="pc" stroke-width="6"/>
+      <line x1="575" y1="220" x2="575" y2="270" id="pf-ddn" class="pf"/>
+      <rect x="543" y="270" width="40" height="22" class="sbox" rx="2"/>
+      <text x="563" y="280" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">PT-01</text>
+      <text id="pt01v" x="563" y="290" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:10px;fill:#00e5ff">3.8 bar</text>
+      <rect x="558" y="200" width="36" height="20" class="sbox" rx="2"/>
+      <text x="576" y="209" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">FT-202</text>
+      <text id="ft202v" x="576" y="219" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#00e5ff">248 m³/h</text>
+      <!-- TANK T-03 -->
+      <rect x="397" y="300" width="75" height="90" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="399" y="302" width="71" height="2" fill="#0e5c8a" rx="1"/>
+      <rect id="t3w" x="399" y="343" width="71" height="45" fill="rgba(0,100,180,.3)" rx="2"/>
+      <rect id="t3s" x="399" y="341" width="71" height="4" fill="rgba(0,180,255,.35)"/>
+      <text id="t3tv" x="434" y="360" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:13px;fill:#00e5ff;font-weight:bold">55%</text>
+      <text x="434" y="373" text-anchor="middle" class="tl">T-03</text>
+      <text x="434" y="385" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">1,500 m³</text>
+      <text x="434" y="400" text-anchor="middle" class="dl">PROCESS WATER</text>
+      <rect x="476" y="310" width="34" height="20" class="sbox" rx="2"/>
+      <text x="493" y="319" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">LT-03</text>
+      <text id="lt03v" x="493" y="329" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#ffe600">55.1%</text>
+      <line x1="434" y1="270" x2="434" y2="300" class="pc" stroke-width="6"/>
+      <line x1="434" y1="270" x2="434" y2="300" id="pf-t3in" class="pf"/>
+      <!-- PROCESS ZONE: COOLING TOWER -->
+      <rect x="605" y="40" width="70" height="80" fill="#060f1a" stroke="#1a5c7c" stroke-width="2" rx="4"/>
+      <ellipse cx="640" cy="40" rx="35" ry="8" fill="#071825" stroke="#1a5c7c" stroke-width="1.5"/>
+      <g id="ctfan" style="animation:pS 2s linear infinite;transform-origin:640px 40px">
+        <ellipse cx="640" cy="40" rx="22" ry="6" fill="rgba(0,200,255,.1)" stroke="#007aaa"/>
+        <line x1="618" y1="40" x2="662" y2="40" stroke="#007aaa" stroke-width="2" stroke-linecap="round"/>
+        <line x1="640" y1="18" x2="640" y2="62" stroke="#007aaa" stroke-width="2" stroke-linecap="round"/>
+      </g>
+      <rect x="607" y="90" width="66" height="28" fill="rgba(0,100,200,.3)" rx="2"/>
+      <circle cx="620" cy="55" r="2" fill="rgba(0,200,255,.4)" style="animation:pulse 1.5s infinite"/>
+      <circle cx="640" cy="48" r="1.5" fill="rgba(0,200,255,.3)" style="animation:pulse 2s .3s infinite"/>
+      <circle cx="658" cy="58" r="2" fill="rgba(0,200,255,.4)" style="animation:pulse 1.8s .6s infinite"/>
+      <text x="640" y="75" text-anchor="middle" class="tl">CT-01</text>
+      <text x="640" y="132" text-anchor="middle" class="dl">COOLING TOWER</text>
+      <!-- HX -->
+      <rect x="605" y="155" width="70" height="55" fill="#060f1a" stroke="#1a3c5c" stroke-width="2" rx="4"/>
+      <line x1="618" y1="162" x2="618" y2="203" stroke="#1a4a6a" stroke-width="2"/>
+      <line x1="625" y1="162" x2="625" y2="203" stroke="#1a4a6a" stroke-width="2"/>
+      <line x1="632" y1="162" x2="632" y2="203" stroke="#7a2200" stroke-width="2" id="hx1"/>
+      <line x1="639" y1="162" x2="639" y2="203" stroke="#7a2200" stroke-width="2" id="hx2"/>
+      <line x1="646" y1="162" x2="646" y2="203" stroke="#1a4a6a" stroke-width="2"/>
+      <line x1="653" y1="162" x2="653" y2="203" stroke="#1a4a6a" stroke-width="2"/>
+      <line x1="660" y1="162" x2="660" y2="203" stroke="#7a2200" stroke-width="2" id="hx3"/>
+      <text x="640" y="145" text-anchor="middle" class="dl">HX-01</text>
+      <text x="640" y="220" text-anchor="middle" class="dl">HEAT EXCHANGER</text>
+      <rect x="678" y="175" width="34" height="20" class="sbox" rx="2"/>
+      <text x="695" y="184" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">TT-01</text>
+      <text id="tt01v" x="695" y="194" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#ff8c00">42.3°C</text>
+      <!-- PUMP P-04 -->
+      <g id="p4g" style="filter:drop-shadow(0 0 4px rgba(0,255,136,.6))">
+        <circle cx="640" cy="270" r="16" fill="#050d14" stroke="#005a30" stroke-width="1.5"/>
+        <g id="p4r" style="animation:pS 1.5s linear infinite;transform-origin:640px 270px">
+          <line x1="640" y1="257" x2="640" y2="265" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="640" y1="275" x2="640" y2="283" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="627" y1="270" x2="635" y2="270" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="645" y1="270" x2="653" y2="270" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="631" y1="260" x2="636" y2="265" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="644" y1="275" x2="649" y2="280" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="649" y1="260" x2="644" y2="265" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="636" y1="275" x2="631" y2="280" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+        </g>
+        <circle cx="640" cy="270" r="4" fill="#00ff88" id="p4d"/>
+      </g>
+      <text x="640" y="293" text-anchor="middle" class="dl">P-04</text>
+      <text id="p4sv" x="640" y="303" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00ff88">45kW RUN</text>
+      <!-- TANK T-04 -->
+      <rect x="605" y="330" width="70" height="70" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="607" y="332" width="66" height="2" fill="#0e5c8a" rx="1"/>
+      <rect id="t4w" x="607" y="332" width="66" height="38" fill="rgba(0,80,150,.25)" rx="2"/>
+      <text id="t4tv" x="640" y="355" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:11px;fill:#00e5ff;font-weight:bold">68%</text>
+      <text x="640" y="367" text-anchor="middle" class="tl">T-04</text>
+      <text x="640" y="409" text-anchor="middle" class="dl">PROCESS SUMP</text>
+      <!-- PROCESS PIPES -->
+      <line x1="640" y1="120" x2="640" y2="155" stroke="#0a5c8a" stroke-width="5"/>
+      <line x1="640" y1="120" x2="640" y2="155" id="pf-cthx" class="pfs"/>
+      <line x1="605" y1="220" x2="575" y2="220" class="pc" stroke-width="6"/>
+      <line x1="605" y1="220" x2="575" y2="220" id="pf-proc" class="pf"/>
+      <line x1="640" y1="210" x2="640" y2="254" stroke="#0a5c8a" stroke-width="5"/>
+      <line x1="640" y1="210" x2="640" y2="254" id="pf-hxp4" class="pfs"/>
+      <line x1="640" y1="286" x2="640" y2="330" class="pc" stroke-width="5"/>
+      <line x1="640" y1="286" x2="640" y2="330" id="pf-p4t4" class="pf"/>
+      <line x1="597" y1="155" x2="605" y2="155" class="ph" stroke-width="4"/>
+      <!-- WASTEWATER -->
+      <rect x="200" y="280" width="130" height="60" fill="#060f1a" stroke="#3a2000" stroke-width="2" rx="3"/>
+      <rect x="202" y="282" width="126" height="30" fill="rgba(80,50,10,.3)" rx="2" id="www"/>
+      <text x="265" y="300" text-anchor="middle" style="font-family:'Orbitron',monospace;font-size:9px;fill:rgba(200,150,50,.8);letter-spacing:1px">WASTEWATER</text>
+      <text id="wwv" x="265" y="314" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:10px;fill:#ffe600;font-weight:bold">42%</text>
+      <text x="265" y="350" text-anchor="middle" class="dl">COLLECTION SUMP</text>
+      <line x1="297" y1="180" x2="297" y2="245" stroke="#4a3010" stroke-width="3" stroke-dasharray="5 5"/>
+      <line x1="297" y1="245" x2="265" y2="280" stroke="#4a3010" stroke-width="3" stroke-dasharray="5 5"/>
+      <circle cx="265" cy="380" r="14" fill="#050d14" stroke="#4a2000" stroke-width="1.5" id="p5c"/>
+      <circle cx="265" cy="380" r="4" fill="#ff8c00"/>
+      <text x="265" y="402" text-anchor="middle" class="dl">P-05</text>
+      <text id="p5sv" x="265" y="412" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#ff8c00">22kW RUN</text>
+      <line x1="265" y1="340" x2="265" y2="366" stroke="#4a3010" stroke-width="4"/>
+      <line x1="265" y1="340" x2="265" y2="366" id="pf-wwp" class="pfw"/>
+      <line x1="265" y1="394" x2="265" y2="450" stroke="#4a3010" stroke-width="4"/>
+      <line x1="265" y1="450" x2="195" y2="450" stroke="#4a3010" stroke-width="4"/>
+      <line x1="195" y1="450" x2="195" y2="370" stroke="#4a3010" stroke-width="4"/>
+      <!-- FIRE SYSTEM -->
+      <rect x="765" y="40" width="80" height="100" fill="#060f1a" stroke="#1a3c5c" stroke-width="2" rx="3"/>
+      <rect x="767" y="42" width="76" height="2" fill="#0e5c8a" rx="1"/>
+      <rect id="ftw" x="767" y="44" width="76" height="94" fill="rgba(0,80,180,.45)" rx="2" style="filter:drop-shadow(0 0 5px rgba(0,229,255,.4))"/>
+      <rect x="767" y="42" width="76" height="4" fill="rgba(0,200,255,.5)"/>
+      <text id="ftvt" x="805" y="95" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:14px;fill:#00e5ff;font-weight:bold">100%</text>
+      <text x="805" y="112" text-anchor="middle" class="tl">FIRE RES</text>
+      <text x="805" y="125" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">5,000 m³</text>
+      <text x="805" y="154" text-anchor="middle" class="dl">FIRE RESERVE</text>
+      <circle cx="805" cy="200" r="14" fill="#050d14" stroke="#005a30" stroke-width="1.5"/>
+      <circle cx="805" cy="200" r="4" fill="#00ff88"/>
+      <text x="805" y="222" text-anchor="middle" class="dl">JP-01</text>
+      <text x="805" y="232" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:7px;fill:#00ff88">JOCKEY RUN</text>
+      <circle cx="805" cy="280" r="16" fill="#050d14" stroke="#3a0000" stroke-width="1.5" id="fpc"/>
+      <circle cx="805" cy="280" r="5" fill="#4a0000" id="fpd"/>
+      <text x="805" y="303" text-anchor="middle" class="dl">FP-01</text>
+      <text id="fpst" x="805" y="313" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:7px;fill:#4a4a4a">FIRE STANDBY</text>
+      <line x1="805" y1="155" x2="805" y2="186" class="pc" stroke-width="5"/>
+      <line x1="805" y1="214" x2="805" y2="264" class="pc" stroke-width="5"/>
+      <line x1="805" y1="296" x2="805" y2="450" stroke="#3a0000" stroke-width="4" id="fpipe"/>
+      <rect x="790" y="360" width="30" height="14" fill="#071018" stroke="#2a0000" stroke-width="1" rx="3" id="spkr"/>
+      <text id="spktx" x="805" y="371" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#3a1a1a">SPRINK</text>
+      <line x1="760" y1="220" x2="765" y2="220" class="pc" stroke-width="5"/>
+      <line x1="765" y1="220" x2="765" y2="95" class="pc" stroke-width="5"/>
+      <!-- ALARM -->
+      <rect id="alr" x="432" y="163" width="38" height="18" fill="rgba(255,60,90,.1)" stroke="rgba(255,60,90,.5)" stroke-width="1" rx="2" class="af"/>
+      <text id="altx" x="451" y="175" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#ff3c5a" class="af">⚠ HIGH</text>
+      <text x="450" y="500" text-anchor="middle" style="font-family:'Orbitron',monospace;font-size:9px;fill:rgba(0,200,255,.15);letter-spacing:3px">FACTORY WATER SYSTEM — P&amp;ID SCHEMATIC v5.0</text>
+    </svg>
+  </div>
+
+  <div class="rp">
+    <div class="rps"><div class="rpt">◈ ACTIVE DEVICES</div>
+      <div class="dc"><div class="dch"><div class="dn">P-01</div><div class="ds run" id="rp-p1">RUN</div></div>
+        <div class="dd"><span>Speed</span><span id="r-p1spd">1,480 rpm</span></div>
+        <div class="dd"><span>Power</span><span id="r-p1pwr">75 kW</span></div>
+        <div class="dd"><span>Current</span><span id="r-p1cur">148 A</span></div>
+        <div class="dd"><span>Temp</span><span id="r-p1tmp">64°C</span></div>
+      </div>
+      <div class="dc"><div class="dch"><div class="dn">P-02</div><div class="ds run" id="rp-p2">RUN</div></div>
+        <div class="dd"><span>Speed</span><span id="r-p2spd">1,490 rpm</span></div>
+        <div class="dd"><span>Power</span><span id="r-p2pwr">110 kW</span></div>
+        <div class="dd"><span>Temp</span><span id="r-p2tmp">71°C</span></div>
+      </div>
+      <div class="dc"><div class="dch"><div class="dn">P-03</div><div class="ds stop" id="rp-p3">STBY</div></div>
+        <div class="dd"><span>Speed</span><span id="r-p3spd">0 rpm</span></div>
+        <div class="dd"><span>Power</span><span>0 kW</span></div>
+      </div>
+      <div class="dc"><div class="dch"><div class="dn">P-04</div><div class="ds run" id="rp-p4">RUN</div></div>
+        <div class="dd"><span>Speed</span><span id="r-p4spd">980 rpm</span></div>
+        <div class="dd"><span>Power</span><span id="r-p4pwr">45 kW</span></div>
+        <div class="dd"><span>Flow</span><span id="r-p4fl">82 m³/h</span></div>
+      </div>
+      <div class="dc"><div class="dch"><div class="dn">CT-01</div><div class="ds run">RUN</div></div>
+        <div class="dd"><span>Inlet T</span><span id="r-ctin">52°C</span></div>
+        <div class="dd"><span>Outlet T</span><span id="r-ctout">32°C</span></div>
+        <div class="dd"><span>ΔT</span><span id="r-ctdt" style="color:var(--teal)">20°C</span></div>
+      </div>
+    </div>
+    <div class="rps"><div class="rpt">◈ VALVE STATUS</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div class="dd"><span>VLV-01 INLET</span><span id="vs-v1" style="color:var(--green)">● OPEN</span></div>
+        <div class="dd"><span>VLV-02 BYPASS</span><span id="vs-v2" style="color:var(--red)">● SHUT</span></div>
+        <div class="dd"><span>VLV-03 DIST</span><span id="vs-v3" style="color:var(--green)">● OPEN</span></div>
+        <div class="dd"><span>VLV-04 FIRE</span><span id="vs-v4" style="color:var(--green)">● OPEN</span></div>
+        <div class="dd"><span>VLV-05 DRAIN</span><span style="color:var(--yellow)">● PART</span></div>
+        <div class="dd"><span>VLV-06 WW</span><span style="color:var(--green)">● OPEN</span></div>
+      </div>
+    </div>
+    <div class="rps"><div class="rpt">◈ ENERGY</div>
+      <div class="kr"><span class="kl">TOTAL POWER</span><span class="kv t" id="kpi-pwr">248 kW</span></div>
+      <div class="kr"><span class="kl">SPECIFIC E.</span><span class="kv g" id="kpi-spe">0.42 kWh/m³</span></div>
+      <div class="kr"><span class="kl">POWER FCTR</span><span class="kv g">0.93</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIG TAB -->
+<div class="tc" id="tab-cfg">
+  <div class="cfgwrap">
+    <!-- LEFT PANEL -->
+    <div class="cfgl">
+      <div style="padding:11px 13px 7px;border-bottom:1px solid var(--border)">
+        <div style="font-family:'Orbitron',monospace;font-size:11px;color:var(--yellow);letter-spacing:2px">⚙ SIMULATION CONFIG</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);margin-top:4px">Sliders &amp; toggles update the Digital Twin live.</div>
+      </div>
+      <!-- PUMP CONTROL -->
+      <div class="csec"><div class="ctit">PUMP CONTROL</div>
+        <div class="crow">
+          <div class="clbl">P-01 INTAKE POWER <span class="clv" id="cl-p1">75 kW</span></div>
+          <input type="range" id="s-p1" class="gs" min="0" max="100" value="75" oninput="upd()">
+        </div>
+        <div class="trow"><span class="tlbl">P-01 ENABLE</span><label class="tog"><input type="checkbox" id="t-p1" checked onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+        <div class="crow" style="margin-top:8px">
+          <div class="clbl">P-02 DIST POWER <span class="clv" id="cl-p2">110 kW</span></div>
+          <input type="range" id="s-p2" class="gs" min="0" max="150" value="110" oninput="upd()">
+        </div>
+        <div class="trow"><span class="tlbl">P-02 ENABLE</span><label class="tog"><input type="checkbox" id="t-p2" checked onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+        <div class="trow"><span class="tlbl">P-03 BACKUP ENABLE</span><label class="tog"><input type="checkbox" id="t-p3" onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+        <div class="trow"><span class="tlbl">P-04 PROCESS ENABLE</span><label class="tog"><input type="checkbox" id="t-p4" checked onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+      </div>
+      <!-- TANK LEVELS -->
+      <div class="csec"><div class="ctit">TANK LEVELS</div>
+        <div class="crow"><div class="clbl">T-01 INTAKE <span class="clv" id="cl-t1">78%</span></div><input type="range" id="s-t1" min="5" max="100" value="78" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">T-02 CLEAR WATER <span class="clv" id="cl-t2">91%</span></div><input type="range" id="s-t2" class="gs" min="5" max="100" value="91" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">T-03 PROCESS <span class="clv" id="cl-t3">55%</span></div><input type="range" id="s-t3" min="5" max="100" value="55" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">FIRE RESERVE <span class="clv" id="cl-tf">100%</span></div><input type="range" id="s-tf" class="gs" min="10" max="100" value="100" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">WASTEWATER <span class="clv y" id="cl-tw">42%</span></div><input type="range" id="s-tw" class="ys" min="0" max="100" value="42" oninput="upd()"></div>
+      </div>
+      <!-- VALVE CONTROL -->
+      <div class="csec"><div class="ctit">VALVE CONTROL</div>
+        <div class="trow"><span class="tlbl">VLV-01 INLET OPEN</span><label class="tog"><input type="checkbox" id="v-v1" checked onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+        <div class="trow"><span class="tlbl">VLV-02 BYPASS OPEN</span><label class="tog"><input type="checkbox" id="v-v2" onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+        <div class="trow"><span class="tlbl">VLV-03 DISTRIBUTION</span><label class="tog"><input type="checkbox" id="v-v3" checked onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+        <div class="trow"><span class="tlbl">VLV-04 FIRE LINE</span><label class="tog"><input type="checkbox" id="v-v4" checked onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+      </div>
+      <!-- SCENARIO -->
+      <div class="csec"><div class="ctit">SCENARIO PRESETS</div>
+        <div class="crow"><div class="clbl" style="margin-bottom:6px">SELECT SCENARIO</div>
+          <select class="csel" id="scen" onchange="applyScenario()">
+            <option value="normal">Normal Operation</option>
+            <option value="highdemand">High Demand Peak</option>
+            <option value="fire">🔴 Fire Emergency</option>
+            <option value="maint">P-01 Maintenance</option>
+            <option value="lowsrc">Low Source Water</option>
+            <option value="backwash">Filter Backwash</option>
+            <option value="shutdown">Full Shutdown</option>
+          </select>
+        </div>
+      </div>
+      <!-- BUTTONS -->
+      <div class="csec">
+        <button class="capply" onclick="applyConfig()">▶ APPLY &amp; SIMULATE</button>
+        <button class="creset" onclick="resetAll()">↺ RESET DEFAULTS</button>
+      </div>
+    </div>
+
+    <!-- CENTER PANEL -->
+    <div class="cfgc">
+      <!-- WATER QUALITY -->
+      <div class="psec"><div class="phdr">◈ WATER QUALITY PARAMETERS</div><div class="pbdy">
+        <div class="crow"><div class="clbl">pH SETPOINT <span class="clv" id="cl-ph">7.24</span></div><input type="range" id="s-ph" class="gs" min="5.0" max="9.0" step="0.01" value="7.24" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">CHLORINE mg/L <span class="clv y" id="cl-cl">0.52</span></div><input type="range" id="s-cl" class="ys" min="0.1" max="2.0" step="0.01" value="0.52" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">TURBIDITY NTU <span class="clv" id="cl-tb">0.18</span></div><input type="range" id="s-tb" min="0.05" max="5.0" step="0.01" value="0.18" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">RAW WATER TEMP °C <span class="clv y" id="cl-tp">18.4</span></div><input type="range" id="s-tp" class="ys" min="5" max="40" step="0.1" value="18.4" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">CONDUCTIVITY µS/cm <span class="clv" id="cl-cd">428</span></div><input type="range" id="s-cd" min="100" max="1500" value="428" oninput="upd()"></div>
+      </div></div>
+      <!-- FLOW & PRESSURE -->
+      <div class="psec"><div class="phdr">◈ FLOW &amp; PRESSURE CONFIG</div><div class="pbdy">
+        <div class="crow"><div class="clbl">INTAKE FLOW RATE m³/h <span class="clv" id="cl-fl">248</span></div><input type="range" id="s-fl" min="20" max="500" value="248" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">SYSTEM PRESSURE bar <span class="clv" id="cl-pr">3.8</span></div><input type="range" id="s-pr" class="gs" min="0.5" max="9.0" step="0.1" value="3.8" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">PROCESS DEMAND m³/h <span class="clv y" id="cl-dm">82</span></div><input type="range" id="s-dm" class="ys" min="0" max="200" value="82" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">HX PROCESS TEMP °C <span class="clv r" id="cl-hx">42</span></div><input type="range" id="s-hx" class="rs" min="20" max="95" value="42" oninput="upd()"></div>
+      </div></div>
+      <!-- FIRE SYSTEM -->
+      <div class="psec"><div class="phdr">◈ FIRE SYSTEM</div><div class="pbdy">
+        <div class="trow"><span class="tlbl" style="color:var(--text)">FIRE EMERGENCY ACTIVATE</span><label class="tog"><input type="checkbox" id="t-fire" onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+        <div class="trow"><span class="tlbl" style="color:var(--text)">SPRINKLER SYSTEM</span><label class="tog"><input type="checkbox" id="t-spk" onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+        <div class="crow" style="margin-top:8px"><div class="clbl">FIRE TANK LEVEL <span class="clv" id="cl-ftl">100%</span></div><input type="range" id="s-ftl" class="gs" min="10" max="100" value="100" oninput="upd()"></div>
+      </div></div>
+      <!-- SIMULATION SETTINGS -->
+      <div class="psec"><div class="phdr">◈ SIMULATION SETTINGS</div><div class="pbdy">
+        <div class="crow"><div class="clbl">NOISE / JITTER % <span class="clv" id="cl-ns">5</span></div><input type="range" id="s-ns" min="0" max="30" value="5" oninput="upd()"></div>
+        <div class="crow"><div class="clbl">SCAN INTERVAL ms <span class="clv" id="cl-sc">500</span></div><input type="range" id="s-sc" min="200" max="5000" step="100" value="500" oninput="upd()"></div>
+        <div class="trow"><span class="tlbl" style="color:var(--text)">AUTO DRIFT SIMULATION</span><label class="tog"><input type="checkbox" id="t-drift" checked onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+        <div class="trow"><span class="tlbl" style="color:var(--text)">ALARM GENERATION</span><label class="tog"><input type="checkbox" id="t-alm" checked onchange="upd()"><div class="ttrack"></div><div class="tknob"></div></label></div>
+      </div></div>
+    </div>
+
+    <!-- RIGHT PANEL: PREVIEW -->
+    <div class="cfgr">
+      <div style="padding:11px 13px 7px;border-bottom:1px solid var(--border)">
+        <div style="font-family:'Orbitron',monospace;font-size:10px;color:var(--teal);letter-spacing:1px">◈ LIVE PREVIEW</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);margin-top:3px">Reflects immediately on Digital Twin.</div>
+      </div>
+      <!-- MINI TANK VIS -->
+      <div class="csec"><div class="ctit tl2">TANK LEVELS</div>
+        <svg width="224" height="110" viewBox="0 0 224 110" style="display:block;margin:0 auto">
+          <rect x="4"   y="10" width="36" height="78" fill="#060f1a" stroke="#0e3d5c" stroke-width="1.5" rx="2"/>
+          <rect id="mt1" x="6"  y="30" width="32" height="56" fill="rgba(0,150,255,.4)" rx="1"/>
+          <text x="22"  y="100" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">T-01</text>
+          <text id="mt1l" x="22" y="22" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00e5ff">78%</text>
+          <rect x="49"  y="10" width="36" height="78" fill="#060f1a" stroke="#0e3d5c" stroke-width="1.5" rx="2"/>
+          <rect id="mt2" x="51" y="12" width="32" height="74" fill="rgba(0,200,100,.4)" rx="1"/>
+          <text x="67"  y="100" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">T-02</text>
+          <text id="mt2l" x="67" y="22" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00ff88">91%</text>
+          <rect x="94"  y="10" width="36" height="78" fill="#060f1a" stroke="#0e3d5c" stroke-width="1.5" rx="2"/>
+          <rect id="mt3" x="96" y="46" width="32" height="40" fill="rgba(0,100,200,.4)" rx="1"/>
+          <text x="112" y="100" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">T-03</text>
+          <text id="mt3l" x="112" y="22" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00e5ff">55%</text>
+          <rect x="139" y="10" width="36" height="78" fill="#060f1a" stroke="#0e3d5c" stroke-width="1.5" rx="2"/>
+          <rect id="mtf" x="141" y="12" width="32" height="74" fill="rgba(0,80,200,.45)" rx="1"/>
+          <text x="157" y="100" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">FIRE</text>
+          <text id="mtfl" x="157" y="22" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00ff88">100%</text>
+          <rect x="183" y="28" width="36" height="60" fill="#060f1a" stroke="#3a2000" stroke-width="1.5" rx="2"/>
+          <rect id="mtww" x="185" y="50" width="32" height="36" fill="rgba(120,80,10,.4)" rx="1"/>
+          <text x="201" y="100" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">WW</text>
+          <text id="mtwwl" x="201" y="42" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#ffe600">42%</text>
+        </svg>
+      </div>
+      <!-- COMPUTED OUTPUT -->
+      <div class="csec"><div class="ctit tl2">COMPUTED OUTPUT</div>
+        <div class="pr"><span class="pk">Total Flow</span><span class="pv i" id="pv-fl">248 m³/h</span></div>
+        <div class="pr"><span class="pk">Pressure</span><span class="pv ok" id="pv-pr">3.8 bar</span></div>
+        <div class="pr"><span class="pk">Active Pumps</span><span class="pv i" id="pv-pm">3 / 4</span></div>
+        <div class="pr"><span class="pk">Total Power</span><span class="pv i" id="pv-pw">248 kW</span></div>
+        <div class="pr"><span class="pk">pH Status</span><span class="pv ok" id="pv-ph">OK 7.24</span></div>
+        <div class="pr"><span class="pk">Chlorine</span><span class="pv ok" id="pv-cl">OK 0.52</span></div>
+        <div class="pr"><span class="pk">Turbidity</span><span class="pv ok" id="pv-tb">OK 0.18</span></div>
+        <div class="pr"><span class="pk">Efficiency</span><span class="pv ok" id="pv-ef">94.2%</span></div>
+        <div class="pr"><span class="pk">HX Temp</span><span class="pv w" id="pv-hx">42°C</span></div>
+        <div class="pr"><span class="pk">Scan Rate</span><span class="pv i" id="pv-sc">500ms</span></div>
+      </div>
+      <!-- ACTIVE EFFECTS -->
+      <div class="csec"><div class="ctit tl2">ACTIVE EFFECTS</div>
+        <div id="chips" style="display:flex;flex-wrap:wrap;gap:3px"></div>
+      </div>
+      <!-- SCENARIO INFO -->
+      <div class="csec"><div class="ctit tl2">SCENARIO</div>
+        <div id="sc-desc" style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--dim);line-height:1.6">Normal operating conditions. All primary pumps online. Tanks at healthy levels.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PLACEHOLDER TABS -->
+<div class="tc" id="tab-trend"><div class="ph-stub"><div style="font-size:28px">▦</div><div style="font-size:12px;letter-spacing:2px">DATA TREND</div><div style="font-size:9px;margin-top:6px">Available after simulation run</div></div></div>
+<div class="tc" id="tab-alarms"><div class="ph-stub"><div style="font-size:28px">⚠</div><div style="font-size:12px;letter-spacing:2px">ALARM MANAGEMENT</div><div style="font-size:9px;margin-top:6px;color:var(--yellow)" id="alm-ph">3 active alarms</div></div></div>
+<div class="tc" id="tab-rep"><div class="ph-stub"><div style="font-size:28px">📋</div><div style="font-size:12px;letter-spacing:2px">REPORTS</div><div style="font-size:9px;margin-top:6px">Export after simulation</div></div></div>
+
+</div><!-- .main -->
+
+<div class="stbar">
+  <span>PLC: <b id="sb-plc">ONLINE</b></span>
+  <span>SCAN: <b id="sb-sc">500ms</b></span>
+  <span>ALARMS: <b id="sb-alm" style="color:var(--yellow)">3 ACTIVE</b></span>
+  <span id="sb-sim" style="display:none;color:var(--yellow)">⚙ SIM MODE</span>
+  <span style="margin-left:auto">AQUATwin v5.0 &nbsp;|&nbsp; © FACTORY SYSTEMS</span>
+</div>
+
+<div class="toast" id="toast">CONFIG APPLIED</div>
+
+<script>
+// ===== STATE =====
+const S = {
+  p1:75,p1on:true, p2:110,p2on:true, p3on:false, p4on:true,
+  t1:78,t2:91,t3:55,tf:100,tw:42,
+  v1:true,v2:false,v3:true,v4:true,
+  ph:7.24,cl:0.52,tb:0.18,tp:18.4,cd:428,
+  fl:248,pr:3.8,dm:82,hx:42,
+  fire:false,spk:false,ftl:100,
+  ns:5,sc:500,drift:true,alms:true
+};
+let dv={t1:78,t2:91,t3:55,tw:42,fl:248,pr:3.8};
+let simIv=null;
+
+// ===== TAB SWITCHING =====
+function swTab(n){
+  const map=['twin','trend','alarms','cfg','rep'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',map[i]===n));
+  document.querySelectorAll('.tc').forEach(c=>c.classList.remove('active'));
+  document.getElementById('tab-'+n).classList.add('active');
+}
+
+// ===== CLOCK =====
+function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour12:false});}
+setInterval(tick,1000);tick();
+
+// ===== SLIDER GRADIENT =====
+function slg(el){const p=((+el.value-+el.min)/(+el.max-+el.min)*100).toFixed(1)+'%';el.style.setProperty('--pct',p);}
+document.querySelectorAll('input[type=range]').forEach(e=>{slg(e);e.addEventListener('input',()=>slg(e));});
+
+// ===== READ CONFIG =====
+function read(){
+  S.p1=+g('s-p1');S.p1on=g('t-p1').checked;
+  S.p2=+g('s-p2');S.p2on=g('t-p2').checked;
+  S.p3on=g('t-p3').checked;S.p4on=g('t-p4').checked;
+  S.t1=+g('s-t1');S.t2=+g('s-t2');S.t3=+g('s-t3');S.tf=+g('s-tf');S.tw=+g('s-tw');
+  S.v1=g('v-v1').checked;S.v2=g('v-v2').checked;S.v3=g('v-v3').checked;S.v4=g('v-v4').checked;
+  S.ph=+g('s-ph');S.cl=+g('s-cl');S.tb=+g('s-tb');S.tp=+g('s-tp');S.cd=+g('s-cd');
+  S.fl=+g('s-fl');S.pr=+g('s-pr');S.dm=+g('s-dm');S.hx=+g('s-hx');
+  S.fire=g('t-fire').checked;S.spk=g('t-spk').checked;S.ftl=+g('s-ftl');
+  S.ns=+g('s-ns');S.sc=+g('s-sc');S.drift=g('t-drift').checked;S.alms=g('t-alm').checked;
+}
+function g(id){return document.getElementById(id);}
+function tx(id,v){const e=g(id);if(e)e.textContent=v;}
+
+// ===== UPDATE CONFIG LABELS =====
+function lbls(){
+  tx('cl-p1',S.p1on?S.p1+' kW':'OFF');tx('cl-p2',S.p2on?S.p2+' kW':'OFF');
+  tx('cl-t1',S.t1+'%');tx('cl-t2',S.t2+'%');tx('cl-t3',S.t3+'%');tx('cl-tf',S.tf+'%');tx('cl-tw',S.tw+'%');
+  tx('cl-ph',S.ph.toFixed(2));tx('cl-cl',S.cl.toFixed(2));tx('cl-tb',S.tb.toFixed(2));
+  tx('cl-tp',S.tp.toFixed(1));tx('cl-cd',S.cd);
+  tx('cl-fl',S.fl);tx('cl-pr',S.pr.toFixed(1));tx('cl-dm',S.dm);tx('cl-hx',S.hx);
+  tx('cl-ns',S.ns+'%');tx('cl-sc',S.sc);tx('cl-ftl',S.ftl+'%');
+}
+
+// ===== MINI TANKS =====
+function miniTank(id,lbl,pct,maxH,topY){
+  const e=g(id);if(!e)return;
+  const h=Math.max(2,pct/100*maxH);e.setAttribute('height',h);e.setAttribute('y',topY+maxH-h);
+  tx(lbl,Math.round(pct)+'%');
+}
+function minis(){
+  miniTank('mt1','mt1l',S.t1,66,22);
+  miniTank('mt2','mt2l',S.t2,74,12);
+  miniTank('mt3','mt3l',S.t3,66,22);
+  miniTank('mtf','mtfl',S.tf,74,12);
+  miniTank('mtww','mtwwl',S.tw,54,34);
+}
+
+// ===== PREVIEW PANEL =====
+function preview(){
+  const act=[S.p1on,S.p2on,S.p3on,S.p4on].filter(Boolean).length;
+  const pwr=(S.p1on?S.p1:0)+(S.p2on?S.p2:0)+(S.p3on?75:0)+(S.p4on?45:0);
+  const eff=Math.max(60,Math.min(99,94-(S.tb>1?10:0)+(S.p2on?2:-5)-(!S.v1?15:0)));
+  const fl=S.v1&&S.p1on?S.fl:S.fl*.05;
+  const pr=S.v3?S.pr:S.pr*.1;
+  tx('pv-fl',fl.toFixed(0)+' m³/h');tx('pv-pm',act+' / 4');tx('pv-pw',pwr+' kW');
+  tx('pv-ef',eff.toFixed(1)+'%');tx('pv-hx',S.hx+'°C');tx('pv-sc',S.sc+'ms');
+  const pe=g('pv-pr');if(pe){pe.textContent=pr.toFixed(1)+' bar';pe.className='pv '+(pr<2?'c':pr<3?'w':'ok');}
+  const phe=g('pv-ph');if(phe){const bad=S.ph<6.5||S.ph>8.5;phe.textContent=(bad?'⚠ ':'OK ')+S.ph.toFixed(2);phe.className='pv '+(bad?'c':S.ph<7||S.ph>7.8?'w':'ok');}
+  const cle=g('pv-cl');if(cle){cle.textContent=(S.cl>1.5?'⚠ ':'OK ')+S.cl.toFixed(2);cle.className='pv '+(S.cl>1.5?'c':S.cl>1?'w':'ok');}
+  const tbe=g('pv-tb');if(tbe){tbe.textContent=(S.tb>1?'⚠ ':'OK ')+S.tb.toFixed(2);tbe.className='pv '+(S.tb>2?'c':S.tb>1?'w':'ok');}
+  // chips
+  const ch=[];
+  ch.push([S.p1on?'on':'off','P-01 '+(S.p1on?'▶ ON':'▶ OFF')]);
+  ch.push([S.p2on?'on':'off','P-02 '+(S.p2on?'▶ ON':'▶ OFF')]);
+  ch.push([S.p3on?'on':'off','P-03 '+(S.p3on?'▶ ON':'▶ STBY')]);
+  ch.push([S.p4on?'on':'off','P-04 '+(S.p4on?'▶ ON':'▶ OFF')]);
+  ch.push([S.v1?'on':'off','VLV-01 '+(S.v1?'OPEN':'SHUT')]);
+  ch.push([S.v3?'on':'off','DIST '+(S.v3?'OPEN':'SHUT')]);
+  if(S.fire)ch.push(['w','🔴 FIRE EMRG']);
+  if(S.spk)ch.push(['w','💧 SPRINKLER']);
+  if(S.drift)ch.push(['i','DRIFT ON']);
+  if(S.tb>1)ch.push(['w','HIGH TURB']);
+  if(S.ph<6.5||S.ph>8.5)ch.push(['off','pH ALARM']);
+  g('chips').innerHTML=ch.map(([c,l])=>`<span class="chip ${c}">${l}</span>`).join('');
+}
+
+// ===== APPLY TO DIAGRAM =====
+function svgTank(wid,sid,tid,pct,bot,topEdge){
+  const tot=bot-topEdge,h=Math.max(2,pct/100*tot),y=bot-h;
+  const w=g(wid),s=g(sid),t=g(tid);
+  if(w){w.setAttribute('y',y);w.setAttribute('height',h);}
+  if(s)s.setAttribute('y',y-2);
+  if(t){t.setAttribute('y',y+h/2+4);t.textContent=Math.round(pct)+'%';t.setAttribute('fill',pct<20?'#ff3c5a':pct<40?'#ffe600':'#00e5ff');}
+}
+function pipe(id,on){
+  const e=g(id);if(!e)return;
+  if(on){e.className='pf';e.style.opacity='1';}
+  else{e.setAttribute('stroke','#1a4a6a');e.setAttribute('stroke-dasharray','4 16');e.style.animation='none';e.style.opacity='.25';}
+}
+function pumpSet(rid,did,gid,stid,on,kw){
+  const r=g(rid),d=g(did),gg=g(gid),s=g(stid);
+  if(on){const dur=Math.max(.3,2.2-kw/60).toFixed(2);
+    if(r)r.style.animation=`pS ${dur}s linear infinite`;
+    if(d)d.setAttribute('fill','#00ff88');
+    if(gg)gg.style.filter='drop-shadow(0 0 4px rgba(0,255,136,.6))';
+    if(s){s.textContent=kw.toFixed(0)+' kW RUN';s.style.fill='#00ff88';}
+  }else{
+    if(r)r.style.animation='none';
+    if(d)d.setAttribute('fill','#ff3c5a');
+    if(gg)gg.style.filter='drop-shadow(0 0 4px rgba(255,60,90,.3))';
+    if(s){s.textContent='STOPPED';s.style.fill='#ff3c5a';}
+  }
+}
+function rpStatus(id,on){const e=g(id);if(e){e.textContent=on?'RUN':'STOP';e.className='ds '+(on?'run':'stop');}}
+function sbarItem(id,val,color){const e=g(id);if(e){e.textContent=val;e.style.color=color||'';}}
+
+function applyDiagram(){
+  // tanks
+  svgTank('t1w','t1s','t1tv',dv.t1,263,177);
+  svgTank('t2w','t2s','t2tv',dv.t2,153,52);
+  svgTank('t3w','t3s','t3tv',dv.t3,388,302);
+  // fire tank
+  const fw=g('ftw');if(fw){const h=Math.max(2,S.ftl/100*94);fw.setAttribute('height',h);fw.setAttribute('y',44+(94-h));}
+  tx('ftvt',Math.round(S.ftl)+'%');
+  // wastewater
+  const ww=g('www');if(ww){const h=Math.max(2,dv.tw/100*28);ww.setAttribute('height',h);}
+  tx('wwv',Math.round(dv.tw)+'%');
+  // sidebar bars
+  function sbar(pct,pid,bid,bclass){
+    tx(pid,Math.round(pct)+'%');
+    const b=g(bid);if(b){b.style.width=pct+'%';b.className='bf '+(pct<20?'r':pct<40?'y':bclass||'t');}
+  }
+  sbar(dv.t1,'t1-pct','t1-bar','t');sbar(dv.t2,'t2-pct','t2-bar','g');sbar(dv.t3,'t3-pct','t3-bar','t');
+  sbar(S.ftl,'tfire-pct','tfire-bar','g');sbar(dv.tw,'tww-pct','tww-bar','y');
+  tx('lt01v',dv.t1.toFixed(1)+'%');tx('lt02v',dv.t2.toFixed(1)+'%');tx('lt03v',dv.t3.toFixed(1)+'%');
+
+  // PUMPS
+  pumpSet('p1r','p1d','p1g','p1sv',S.p1on,S.p1);
+  pumpSet('p2r','p2d','p2g','p2sv',S.p2on,S.p2);
+  pumpSet('p4r','p4d','p4g','p4sv',S.p4on,45);
+  rpStatus('rp-p1',S.p1on);rpStatus('rp-p2',S.p2on);rpStatus('rp-p4',S.p4on);
+  // P-03
+  const p3c=g('p3c'),p3r=g('p3r'),p3d=g('p3d'),p3sv=g('p3sv');
+  if(S.p3on){if(p3c)p3c.setAttribute('stroke','#005a30');if(p3r)p3r.style.animation='pS 1.2s linear infinite';if(p3d)p3d.setAttribute('fill','#00ff88');if(p3sv){p3sv.textContent='RUN';p3sv.style.fill='#00ff88';}}
+  else{if(p3c)p3c.setAttribute('stroke','#2a4a2a');if(p3r)p3r.style.animation='none';if(p3d)p3d.setAttribute('fill','#4a4a4a');if(p3sv){p3sv.textContent='STANDBY';p3sv.style.fill='#4a4a4a';}}
+  rpStatus('rp-p3',S.p3on);
+
+  // pump side panels
+  tx('r-p1spd',S.p1on?Math.round(1400+S.p1*.8)+' rpm':'0 rpm');tx('r-p1pwr',S.p1on?S.p1+' kW':'0 kW');
+  tx('r-p1cur',S.p1on?Math.round(S.p1*2)+' A':'0 A');tx('r-p1tmp',S.p1on?Math.round(60+S.p1*.15)+'°C':'24°C');
+  tx('r-p2spd',S.p2on?Math.round(1450+S.p2*.3)+' rpm':'0 rpm');tx('r-p2pwr',S.p2on?S.p2+' kW':'0 kW');
+  tx('r-p2tmp',S.p2on?Math.round(65+S.p2*.06)+'°C':'24°C');
+  tx('r-p3spd',S.p3on?'1460 rpm':'0 rpm');
+  tx('r-p4spd',S.p4on?'980 rpm':'0 rpm');tx('r-p4pwr',S.p4on?'45 kW':'0 kW');tx('r-p4fl',S.p4on?S.dm+' m³/h':'0 m³/h');
+  tx('r-ctin',Math.round(S.hx*.8+15)+'°C');tx('r-ctout',Math.round(S.hx*.4+10)+'°C');
+  tx('r-ctdt',Math.round(S.hx*.4+5)+'°C');
+
+  // VALVES
+  const vc=S.v1?'#00ff88':'#ff3c5a';
+  const v1t=g('v01t'),v1b=g('v01b');if(v1t)v1t.setAttribute('fill',vc);if(v1b)v1b.setAttribute('fill',vc);
+  function vstat(id,on){const e=g(id);if(e){e.textContent=on?'● OPEN':'● SHUT';e.style.color=on?'var(--green)':'var(--red)';}}
+  vstat('vs-v1',S.v1);vstat('vs-v2',S.v2);vstat('vs-v3',S.v3);vstat('vs-v4',S.v4);
+
+  // PIPES
+  const p1flow=S.p1on&&S.v1;
+  pipe('pf-src',p1flow);pipe('pf-scr',p1flow);pipe('pf-p1s',S.p1on&&dv.t1>5);pipe('pf-p1d',S.p1on);
+  pipe('pf-rise',S.p1on);pipe('pf-coag',S.p1on);pipe('pf-sed',S.p1on);
+  pipe('pf-fout',S.p1on);pipe('pf-tdn',S.p1on);pipe('pf-uv',S.p1on);pipe('pf-t2in',S.p1on);
+  pipe('pf-t2p2',S.p2on&&dv.t2>5);
+  pipe('pf-mnf',S.p2on||S.p3on);pipe('pf-prv',(S.p2on||S.p3on)&&S.v3);pipe('pf-ddn',(S.p2on||S.p3on)&&S.v3);pipe('pf-t3in',(S.p2on||S.p3on)&&S.v3);
+  pipe('pf-proc',S.p4on);pipe('pf-cthx',S.p4on);pipe('pf-hxp4',S.p4on);pipe('pf-p4t4',S.p4on);
+  pipe('pf-wwp',true);
+
+  // KPIs
+  const fl2=S.v1&&S.p1on?dv.fl:dv.fl*.04;
+  tx('kpi-flow',fl2.toFixed(1)+' m³/h');tx('ft202v',(fl2*(S.p2on?1:.1)).toFixed(0)+' m³/h');
+  const pr2=S.v3?dv.pr:dv.pr*.1;
+  tx('kpi-pres',pr2.toFixed(1)+' bar');tx('pt01v',pr2.toFixed(1)+' bar');
+  const act=[S.p1on,S.p2on,S.p3on,S.p4on].filter(Boolean).length;
+  const pwr=(S.p1on?S.p1:0)+(S.p2on?S.p2:0)+(S.p3on?75:0)+(S.p4on?45:0);
+  const eff=Math.max(60,Math.min(99,94-(S.tb>1?10:0)+(S.p2on?2:-5)-(!S.v1?15:0)));
+  tx('kpi-pumps',act+' / 4');tx('kpi-pwr',pwr+' kW');tx('kpi-eff',eff.toFixed(1)+' %');tx('kpi-loss',(100-eff).toFixed(1)+' %');
+  tx('kpi-ph',S.ph.toFixed(2));tx('kpi-turb',S.tb.toFixed(2)+' NTU');tx('kpi-cl',S.cl.toFixed(2)+' mg/L');
+  tx('kpi-cond',S.cd+' µS/cm');tx('kpi-temp',S.tp.toFixed(1)+' °C');
+
+  // at-01 pH
+  const at=g('at01v');if(at){at.textContent='pH '+S.ph.toFixed(2);at.setAttribute('fill',S.ph<6.5||S.ph>8.5?'#ff3c5a':S.ph<7||S.ph>7.8?'#ffe600':'#00ff88');}
+  // HX color
+  const hxc=S.hx>70?'#ff3c5a':S.hx>50?'#ff8c00':'#7a2200';
+  ['hx1','hx2','hx3'].forEach(id=>{const e=g(id);if(e)e.setAttribute('stroke',hxc);});
+  const tt=g('tt01v');if(tt){tt.textContent=S.hx+'°C';tt.setAttribute('fill',S.hx>70?'#ff3c5a':S.hx>50?'#ff8c00':'#ff8c00');}
+  // UV glow
+  const uv=g('uvg');if(uv){const i=Math.min(1,S.cl/1.0);uv.setAttribute('fill',`rgba(${Math.round(120*i)},0,${Math.round(200*i)},.2)`);uv.setAttribute('stroke',`rgba(${Math.round(160*i)},0,${Math.round(255*i)},.5)`);}
+
+  // FIRE
+  const fireon=S.fire||S.spk;
+  const fc=fireon?'#ff3c5a':'#3a0000';
+  const fp=g('fpipe');if(fp)fp.setAttribute('stroke',fireon?'#ff3c5a':'#3a0000');
+  const sp=g('spkr');if(sp)sp.setAttribute('stroke',fireon?'#ff3c5a':'#2a0000');
+  const stx=g('spktx');if(stx){stx.textContent=fireon?'ACTIVE':'SPRINK';stx.setAttribute('fill',fireon?'#ff3c5a':'#3a1a1a');}
+  const fpc=g('fpc'),fpd=g('fpd'),fpst=g('fpst');
+  if(fpc)fpc.setAttribute('stroke',fireon?'#ff3c5a':'#3a0000');
+  if(fpd)fpd.setAttribute('fill',fireon?'#ff3c5a':'#4a0000');
+  if(fpst){fpst.textContent=fireon?'FIRE ACTIVE':'FIRE STANDBY';fpst.style.fill=fireon?'#ff3c5a':'#4a4a4a';}
+  const ar=g('alr'),at2=g('altx');
+  if(fireon){if(ar)ar.setAttribute('fill','rgba(255,60,90,.25)');if(at2)at2.textContent='🔴 FIRE';}
+  else{if(ar)ar.setAttribute('fill','rgba(255,60,90,.1)');if(at2)at2.textContent='⚠ HIGH';}
+
+  // SIM badge
+  const mod=!(S.p1on&&S.p2on&&!S.p3on&&S.p4on&&Math.abs(dv.t1-78)<2&&!S.fire);
+  const sb=g('sim-badge'),sbsm=g('sb-sim'),sysbg=g('sys-badge');
+  if(sb)sb.style.display=mod?'inline':'none';
+  if(sbsm)sbsm.style.display=mod?'flex':'none';
+  if(sysbg){sysbg.textContent=mod?'SIM MODE':'ONLINE';sysbg.style.color=mod?'var(--yellow)':'var(--green)';}
+  tx('scan-disp',S.sc+'ms');tx('sb-sc',S.sc+'ms');
+}
+
+// ===== DRIFT =====
+function drift(){
+  if(!S.drift)return;
+  const n=S.ns/100;
+  const j=()=>(Math.random()-.5)*n*2;
+  dv.t1=Math.min(98,Math.max(5,dv.t1+(S.p1on?-.3:.4)+j()*2));
+  const t2in=S.p1on?.25:0,t2out=S.p2on?.3:0;
+  dv.t2=Math.min(100,Math.max(5,dv.t2+t2in-t2out+j()*1.5));
+  dv.t3=Math.min(95,Math.max(5,dv.t3+(S.p2on?.1:-.15)+j()));
+  dv.tw=Math.min(95,Math.max(2,dv.tw+.08+j()*.6));
+  dv.fl=Math.max(5,S.fl+j()*S.fl*.05);
+  dv.pr=Math.max(.1,S.pr+j()*.15);
+  applyDiagram();
+}
+
+function restartSim(){
+  if(simIv)clearInterval(simIv);
+  simIv=setInterval(drift,S.sc);
+}
+
+// ===== MAIN UPDATE =====
+function upd(){
+  read();lbls();minis();preview();
+  dv.t1=S.t1;dv.t2=S.t2;dv.t3=S.t3;dv.tw=S.tw;dv.fl=S.fl;dv.pr=S.pr;
+  applyDiagram();restartSim();
+}
+
+// ===== APPLY BUTTON =====
+function applyConfig(){upd();toast('✔ APPLIED TO DIGITAL TWIN');}
+
+// ===== RESET =====
+function resetAll(){
+  const defs={
+    's-p1':75,'t-p1':true,'s-p2':110,'t-p2':true,'t-p3':false,'t-p4':true,
+    's-t1':78,'s-t2':91,'s-t3':55,'s-tf':100,'s-tw':42,
+    'v-v1':true,'v-v2':false,'v-v3':true,'v-v4':true,
+    's-ph':7.24,'s-cl':0.52,'s-tb':0.18,'s-tp':18.4,'s-cd':428,
+    's-fl':248,'s-pr':3.8,'s-dm':82,'s-hx':42,
+    't-fire':false,'t-spk':false,'s-ftl':100,
+    's-ns':5,'s-sc':500,'t-drift':true,'t-alm':true
+  };
+  for(const[k,v]of Object.entries(defs)){const e=g(k);if(e){if(typeof v==='boolean')e.checked=v;else e.value=v;if(e.type==='range')slg(e);}}
+  g('scen').value='normal';tx('sc-desc','Normal operating conditions. All primary pumps online.');
+  upd();toast('↺ RESET TO DEFAULTS');
+}
+
+// ===== SCENARIOS =====
+const SCENS={
+  normal:{desc:'Normal operating conditions. All primary pumps online. Tanks healthy.',
+    fn:()=>{sv('s-p1',75);ck('t-p1',true);sv('s-p2',110);ck('t-p2',true);ck('t-p3',false);ck('t-p4',true);
+      sv('s-t1',78);sv('s-t2',91);sv('s-t3',55);sv('s-tf',100);sv('s-tw',42);
+      ck('v-v1',true);ck('v-v3',true);ck('t-fire',false);sv('s-ph',7.24);sv('s-cl',0.52);sv('s-tb',0.18);sv('s-fl',248);sv('s-pr',3.8);sv('s-ns',5);}},
+  highdemand:{desc:'Peak demand. P-02 + P-03 at max. T-02 dropping fast. Elevated pressure.',
+    fn:()=>{sv('s-p1',100);ck('t-p1',true);sv('s-p2',150);ck('t-p2',true);ck('t-p3',true);
+      sv('s-t1',60);sv('s-t2',38);sv('s-t3',82);sv('s-fl',460);sv('s-pr',6.8);sv('s-ns',12);}},
+  fire:{desc:'🔴 FIRE EMERGENCY! FP-01 active. Sprinkler triggered. Fire reserve draining.',
+    fn:()=>{ck('t-p1',true);ck('t-p2',true);ck('t-p3',true);ck('t-fire',true);ck('t-spk',true);sv('s-ftl',68);sv('s-tf',68);sv('s-pr',7.2);sv('s-fl',360);sv('s-ns',20);}},
+  maint:{desc:'P-01 offline for maintenance. P-03 backup online. T-01 rising slowly. Reduced intake.',
+    fn:()=>{ck('t-p1',false);sv('s-p1',0);ck('t-p2',true);ck('t-p3',true);ck('v-v1',false);sv('s-t1',90);sv('s-t2',62);sv('s-fl',110);sv('s-pr',3.0);sv('s-ns',8);}},
+  lowsrc:{desc:'Critical low source water. T-01 near empty. Reduced capacity. High turbidity.',
+    fn:()=>{ck('t-p1',true);sv('s-p1',28);sv('s-t1',9);sv('s-t2',30);sv('s-t3',18);sv('s-fl',65);sv('s-pr',2.0);sv('s-tb',3.2);sv('s-ns',15);}},
+  backwash:{desc:'Sand filter backwash cycle. P-02 offline temporarily. Bypass open. Flow reduced.',
+    fn:()=>{ck('t-p1',true);ck('t-p2',false);ck('v-v2',true);sv('s-t2',72);sv('s-fl',180);sv('s-pr',2.6);sv('s-tb',0.9);sv('s-ns',10);}},
+  shutdown:{desc:'⛔ FULL SHUTDOWN. All pumps off. Valves closed. Emergency isolation.',
+    fn:()=>{ck('t-p1',false);ck('t-p2',false);ck('t-p3',false);ck('t-p4',false);ck('v-v1',false);ck('v-v3',false);ck('v-v4',false);sv('s-fl',0);sv('s-pr',0.5);sv('s-ns',0);ck('t-drift',false);}}
+};
+function sv(id,val){const e=g(id);if(e){e.value=val;if(e.type==='range')slg(e);}}
+function ck(id,val){const e=g(id);if(e)e.checked=val;}
+function applyScenario(){
+  const n=g('scen').value;const sc=SCENS[n];if(!sc)return;
+  sc.fn();tx('sc-desc',sc.desc);upd();toast('▶ SCENARIO: '+n.toUpperCase());
+}
+
+// ===== TOAST =====
+function toast(msg){const t=g('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+// ===== INIT =====
+upd();
+</script>
+</body>
+</html>
