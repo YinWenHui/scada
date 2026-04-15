@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCADA Digital Twin — Workshop Control Center</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600&display=swap');
+
+:root {
+  --bg-void: #020408;
+  --bg-deep: #040b14;
+  --bg-panel: #071422;
+  --bg-card: #0a1e33;
+  --bg-elevated: #0d2540;
+  --accent-cyan: #00d4ff;
+  --accent-blue: #0080ff;
+  --accent-green: #00ff88;
+  --accent-orange: #ff8800;
+  --accent-red: #ff3355;
+  --accent-yellow: #ffcc00;
+  --accent-purple: #aa44ff;
+  --text-primary: #e0f4ff;
+  --text-secondary: #6a9fc0;
+  --text-muted: #2a5070;
+  --border: #0d3050;
+  --border-bright: #1a5080;
+  --glow-cyan: 0 0 10px #00d4ff44, 0 0 20px #00d4ff22;
+  --glow-green: 0 0 10px #00ff8844, 0 0 20px #00ff8822;
+  --glow-red: 0 0 10px #ff335544, 0 0 20px #ff335522;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; background:var(--bg-void); color:var(--text-primary); font-family:'Share Tech Mono', monospace; }
+
+/* ── STARFIELD ── */
+#starfield { position:fixed; inset:0; pointer-events:none; z-index:0; }
+
+/* ── LAYOUT ── */
+#app { display:flex; flex-direction:column; height:100vh; position:relative; z-index:1; }
+
+/* ── TOP BAR ── */
+#topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  height:52px; padding:0 16px;
+  background:linear-gradient(180deg, #071e38 0%, #040f1e 100%);
+  border-bottom:1px solid var(--border-bright);
+  box-shadow:0 2px 20px #00d4ff18;
+  flex-shrink:0;
+}
+.logo { font-family:'Orbitron',monospace; font-size:14px; font-weight:900; color:var(--accent-cyan); letter-spacing:3px; text-shadow:var(--glow-cyan); }
+.logo span { color:#ffffff88; font-weight:400; font-size:10px; display:block; letter-spacing:2px; }
+#statusbar { display:flex; gap:20px; align-items:center; }
+.status-item { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--text-secondary); }
+.status-dot { width:7px; height:7px; border-radius:50%; animation:pulse 2s infinite; }
+.dot-green { background:var(--accent-green); box-shadow:var(--glow-green); }
+.dot-orange { background:var(--accent-orange); }
+.dot-red { background:var(--accent-red); animation:pulse-red 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+@keyframes pulse-red { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }
+#clock { font-family:'Orbitron',monospace; font-size:13px; color:var(--accent-cyan); letter-spacing:2px; }
+
+/* ── MAIN CONTENT ── */
+#main { display:flex; flex:1; overflow:hidden; }
+
+/* ── LEFT PALETTE ── */
+#palette {
+  width:200px; flex-shrink:0;
+  background:linear-gradient(180deg, #071422 0%, #040d1a 100%);
+  border-right:1px solid var(--border);
+  display:flex; flex-direction:column;
+  overflow-y:auto;
+}
+#palette::-webkit-scrollbar { width:4px; }
+#palette::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
+.palette-section { padding:10px 8px 4px; }
+.palette-label { font-family:'Orbitron',monospace; font-size:9px; letter-spacing:2px; color:var(--text-muted); padding:0 4px 6px; border-bottom:1px solid var(--border); margin-bottom:8px; }
+.palette-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.palette-item {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px; padding:8px 4px; border-radius:6px;
+  border:1px solid var(--border); background:var(--bg-card);
+  cursor:grab; user-select:none; transition:all .2s;
+  font-size:9px; color:var(--text-secondary); text-align:center;
+}
+.palette-item:hover { border-color:var(--accent-cyan); color:var(--accent-cyan); background:var(--bg-elevated); box-shadow:var(--glow-cyan); transform:scale(1.05); }
+.palette-item:active { cursor:grabbing; }
+.pi-icon { font-size:22px; line-height:1; }
+
+/* ── CANVAS AREA ── */
+#canvas-wrap {
+  flex:1; position:relative; overflow:hidden;
+  background:
+    radial-gradient(ellipse at 30% 20%, #001830 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 80%, #001020 0%, transparent 50%),
+    var(--bg-deep);
+}
+.canvas-grid {
+  position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size:40px 40px;
+  opacity:.3;
+}
+#canvas {
+  position:absolute; inset:0; overflow:hidden;
+}
+
+/* ── DROP HINT ── */
+#drop-hint {
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; pointer-events:none;
+  opacity:.15; transition:opacity .3s;
+}
+#drop-hint.hide { opacity:0; }
+.hint-ring { width:180px; height:180px; border-radius:50%; border:2px dashed var(--accent-cyan); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:10px; }
+.hint-text { font-family:'Orbitron',monospace; font-size:11px; letter-spacing:2px; color:var(--accent-cyan); }
+
+/* ── NODE ── */
+.node {
+  position:absolute; cursor:move; user-select:none;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:10px 12px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:var(--bg-card);
+  min-width:90px; min-height:70px;
+  transition:border-color .2s, box-shadow .2s;
+  z-index:10;
+}
+.node:hover { border-color:var(--accent-cyan); }
+.node.selected { border-color:var(--accent-cyan); box-shadow:var(--glow-cyan); z-index:20; }
+.node.running .node-icon { animation:spin 2s linear infinite; }
+.node.running.pump .node-icon { animation:spin 1s linear infinite; }
+.node-icon { font-size:28px; transition:filter .3s; }
+.node-label { font-size:9px; color:var(--text-secondary); letter-spacing:1px; text-align:center; font-family:'Orbitron',monospace; }
+.node-value { font-size:11px; color:var(--accent-green); font-weight:600; letter-spacing:1px; }
+.node-status {
+  position:absolute; top:6px; right:6px;
+  width:7px; height:7px; border-radius:50%;
+  background:var(--accent-red);
+}
+.node.on .node-status, .node.running .node-status { background:var(--accent-green); box-shadow:var(--glow-green); animation:pulse 2s infinite; }
+.node.warn .node-status { background:var(--accent-orange); animation:pulse 1.5s infinite; }
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+/* Tank fill animation */
+.tank-body { position:relative; width:36px; height:44px; border:2px solid currentColor; border-radius:4px 4px 6px 6px; overflow:hidden; margin-bottom:2px; }
+.tank-fill { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(180deg, #00aaff88, #0044ff88); transition:height 1.5s ease; }
+.tank-bubble { position:absolute; width:4px; height:4px; border-radius:50%; background:#ffffff44; animation:bubble 2s infinite; }
+@keyframes bubble { 0%{bottom:5%;opacity:1} 100%{bottom:90%;opacity:0} }
+
+/* Conveyor animation */
+.conveyor-body { width:60px; height:18px; position:relative; overflow:hidden; border:1px solid currentColor; border-radius:2px; }
+.conveyor-belt { position:absolute; inset:0; background:repeating-linear-gradient(90deg, #334 0 8px, #223 8px 16px); animation:belt 0.5s linear infinite; }
+@keyframes belt { from{background-position:0 0} to{background-position:-16px 0} }
+.conveyor-belt.paused { animation-play-state:paused; }
+
+/* Pipe flow */
+.pipe-flow { stroke-dasharray:8 4; animation:flow 1s linear infinite; }
+.pipe-flow.paused { animation-play-state:paused; }
+@keyframes flow { from{stroke-dashoffset:12} to{stroke-dashoffset:0} }
+
+/* ── WIRE CANVAS ── */
+#wire-svg {
+  position:absolute; inset:0; pointer-events:none; z-index:5;
+  overflow:visible;
+}
+
+/* ── RIGHT PANEL ── */
+#rightpanel {
+  width:240px; flex-shrink:0;
+  background:linear-gradient(180deg, #071422 0%, #040d1a 100%);
+  border-left:1px solid var(--border);
+  display:flex; flex-direction:column;
+  overflow-y:auto;
+}
+#rightpanel::-webkit-scrollbar { width:4px; }
+#rightpanel::-webkit-scrollbar-thumb { background:var(--border-bright); border-radius:2px; }
+.panel-section { border-bottom:1px solid var(--border); padding:12px; }
+.panel-title { font-family:'Orbitron',monospace; font-size:10px; letter-spacing:2px; color:var(--text-muted); margin-bottom:10px; }
+
+/* Inspector */
+#inspector-empty { text-align:center; color:var(--text-muted); font-size:10px; padding:20px 0; line-height:2; }
+#inspector-content { display:none; }
+#inspector-content.active { display:block; }
+.inspector-name { font-family:'Orbitron',monospace; font-size:12px; color:var(--accent-cyan); margin-bottom:12px; text-shadow:var(--glow-cyan); }
+.prop-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:10px; }
+.prop-label { color:var(--text-secondary); }
+.prop-value { color:var(--accent-green); font-weight:600; }
+
+/* Toggle */
+.toggle-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:10px; }
+.toggle { position:relative; width:38px; height:20px; }
+.toggle input { opacity:0; width:0; height:0; }
+.toggle-slider {
+  position:absolute; inset:0; cursor:pointer;
+  background:#0d2540; border-radius:20px; border:1px solid var(--border-bright);
+  transition:.3s;
+}
+.toggle-slider:before {
+  content:''; position:absolute; width:14px; height:14px;
+  left:3px; top:2px; border-radius:50%;
+  background:var(--text-muted); transition:.3s;
+}
+input:checked + .toggle-slider { background:#003830; border-color:var(--accent-green); }
+input:checked + .toggle-slider:before { transform:translateX(18px); background:var(--accent-green); box-shadow:var(--glow-green); }
+
+/* Slider */
+.slider-row { margin-bottom:10px; font-size:10px; }
+.slider-label { display:flex; justify-content:space-between; color:var(--text-secondary); margin-bottom:4px; }
+.slider-val { color:var(--accent-cyan); }
+input[type=range] {
+  width:100%; -webkit-appearance:none; height:4px;
+  background:var(--border-bright); border-radius:2px; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+  background:var(--accent-cyan); cursor:pointer; box-shadow:var(--glow-cyan);
+}
+
+/* Color picker */
+.color-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:10px; color:var(--text-secondary); }
+.color-row input[type=color] { width:30px; height:22px; border:1px solid var(--border-bright); border-radius:4px; cursor:pointer; background:none; padding:1px; }
+
+/* Btn */
+.btn { width:100%; padding:7px; border-radius:5px; border:1px solid var(--border-bright); background:var(--bg-elevated); color:var(--text-primary); font-family:'Share Tech Mono',monospace; font-size:10px; cursor:pointer; transition:all .2s; letter-spacing:1px; margin-bottom:6px; }
+.btn:hover { border-color:var(--accent-cyan); color:var(--accent-cyan); box-shadow:var(--glow-cyan); }
+.btn.danger { border-color:#ff335544; color:var(--accent-red); }
+.btn.danger:hover { border-color:var(--accent-red); box-shadow:var(--glow-red); }
+.btn.success { border-color:#00ff8844; color:var(--accent-green); }
+.btn.success:hover { border-color:var(--accent-green); box-shadow:var(--glow-green); }
+
+/* Alerts */
+#alerts { max-height:160px; overflow-y:auto; }
+#alerts::-webkit-scrollbar { width:3px; }
+#alerts::-webkit-scrollbar-thumb { background:var(--border-bright); }
+.alert-item { display:flex; gap:6px; align-items:flex-start; padding:5px; border-radius:4px; margin-bottom:4px; font-size:9px; background:var(--bg-card); border-left:2px solid var(--accent-red); }
+.alert-item.warn { border-left-color:var(--accent-orange); }
+.alert-item.info { border-left-color:var(--accent-blue); }
+.alert-time { color:var(--text-muted); flex-shrink:0; }
+.alert-msg { color:var(--text-secondary); }
+
+/* ── BOTTOM BAR ── */
+#bottombar {
+  height:32px; display:flex; align-items:center; padding:0 14px;
+  justify-content:space-between;
+  background:#040b14; border-top:1px solid var(--border);
+  font-size:9px; color:var(--text-muted); flex-shrink:0;
+}
+.coord { color:var(--text-secondary); letter-spacing:1px; }
+.bottombar-actions { display:flex; gap:10px; }
+.small-btn { padding:2px 10px; border-radius:3px; border:1px solid var(--border-bright); background:none; color:var(--text-secondary); font-family:'Share Tech Mono',monospace; font-size:9px; cursor:pointer; transition:all .15s; }
+.small-btn:hover { border-color:var(--accent-cyan); color:var(--accent-cyan); }
+
+/* ── MODAL ── */
+#modal-overlay { position:fixed; inset:0; background:#00000099; z-index:100; display:none; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+#modal-overlay.open { display:flex; }
+#modal {
+  background:var(--bg-panel); border:1px solid var(--border-bright);
+  border-radius:10px; padding:24px; min-width:320px;
+  box-shadow:0 0 40px #00d4ff18;
+}
+#modal h3 { font-family:'Orbitron',monospace; font-size:13px; color:var(--accent-cyan); margin-bottom:16px; letter-spacing:2px; }
+.modal-row { margin-bottom:12px; font-size:10px; }
+.modal-row label { color:var(--text-secondary); display:block; margin-bottom:4px; }
+.modal-row input[type=text], .modal-row select {
+  width:100%; padding:6px 8px; background:var(--bg-elevated);
+  border:1px solid var(--border-bright); border-radius:4px;
+  color:var(--text-primary); font-family:'Share Tech Mono',monospace; font-size:10px;
+}
+.modal-actions { display:flex; gap:8px; margin-top:16px; }
+.modal-actions .btn { margin:0; }
+
+/* ── CONTEXT MENU ── */
+#ctx-menu {
+  position:fixed; background:var(--bg-panel); border:1px solid var(--border-bright);
+  border-radius:6px; padding:4px; z-index:200; display:none; min-width:150px;
+  box-shadow:0 4px 20px #000a;
+}
+#ctx-menu.open { display:block; }
+.ctx-item { padding:7px 12px; font-size:10px; cursor:pointer; border-radius:4px; color:var(--text-primary); transition:background .15s; display:flex; align-items:center; gap:8px; }
+.ctx-item:hover { background:var(--bg-elevated); color:var(--accent-cyan); }
+.ctx-item.sep { border-top:1px solid var(--border); margin-top:3px; padding-top:8px; }
+.ctx-item.red:hover { color:var(--accent-red); }
+
+/* Animated scanning line */
+#scan-line {
+  position:fixed; left:0; right:0; height:2px;
+  background:linear-gradient(90deg, transparent, var(--accent-cyan)22, var(--accent-cyan)44, var(--accent-cyan)22, transparent);
+  pointer-events:none; z-index:50; animation:scan 8s linear infinite; opacity:.4;
+}
+@keyframes scan { 0%{top:-4px} 100%{top:100vh} }
+
+/* Connection mode indicator */
+#connect-mode-badge {
+  position:fixed; top:60px; left:50%; transform:translateX(-50%);
+  background:var(--accent-orange); color:#000; font-family:'Orbitron',monospace; font-size:10px;
+  padding:5px 16px; border-radius:20px; z-index:100; display:none; letter-spacing:2px;
+}
+#connect-mode-badge.active { display:block; animation:pulse 1s infinite; }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<div id="scan-line"></div>
+<div id="connect-mode-badge">⚡ CONNECTION MODE — CLICK TWO NODES</div>
+
+<div id="app">
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="logo">SCADA<br><span>DIGITAL TWIN v2.5</span></div>
+    <div id="statusbar">
+      <div class="status-item"><div class="status-dot dot-green"></div>SYSTEM ONLINE</div>
+      <div class="status-item"><div class="status-dot dot-green"></div>OPC-UA CONNECTED</div>
+      <div class="status-item"><div class="status-dot dot-orange"></div>3 ALERTS</div>
+      <div class="status-item" id="node-count-display"><div class="status-dot dot-green"></div><span id="nc">0</span> NODES</div>
+    </div>
+    <div id="clock">--:--:--</div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- PALETTE -->
+    <div id="palette">
+      <div class="palette-section">
+        <div class="palette-label">MACHINES</div>
+        <div class="palette-grid">
+          <div class="palette-item" draggable="true" data-type="motor">     <span class="pi-icon">⚙️</span>MOTOR</div>
+          <div class="palette-item" draggable="true" data-type="pump">      <span class="pi-icon">🔄</span>PUMP</div>
+          <div class="palette-item" draggable="true" data-type="conveyor">  <span class="pi-icon">➡️</span>CONVEYOR</div>
+          <div class="palette-item" draggable="true" data-type="compressor"><span class="pi-icon">🌀</span>COMPRESS</div>
+          <div class="palette-item" draggable="true" data-type="robot">     <span class="pi-icon">🤖</span>ROBOT</div>
+          <div class="palette-item" draggable="true" data-type="drill">     <span class="pi-icon">🔩</span>DRILL</div>
+        </div>
+      </div>
+      <div class="palette-section">
+        <div class="palette-label">STORAGE</div>
+        <div class="palette-grid">
+          <div class="palette-item" draggable="true" data-type="tank">   <span class="pi-icon">🛢️</span>TANK</div>
+          <div class="palette-item" draggable="true" data-type="silo">   <span class="pi-icon">🏗️</span>SILO</div>
+          <div class="palette-item" draggable="true" data-type="hopper"> <span class="pi-icon">📦</span>HOPPER</div>
+          <div class="palette-item" draggable="true" data-type="vessel"> <span class="pi-icon">⚗️</span>VESSEL</div>
+        </div>
+      </div>
+      <div class="palette-section">
+        <div class="palette-label">SENSORS</div>
+        <div class="palette-grid">
+          <div class="palette-item" draggable="true" data-type="temp">    <span class="pi-icon">🌡️</span>TEMP</div>
+          <div class="palette-item" draggable="true" data-type="pressure"><span class="pi-icon">📊</span>PRESSURE</div>
+          <div class="palette-item" draggable="true" data-type="flow">    <span class="pi-icon">💧</span>FLOW</div>
+          <div class="palette-item" draggable="true" data-type="level">   <span class="pi-icon">📏</span>LEVEL</div>
+          <div class="palette-item" draggable="true" data-type="vibration"><span class="pi-icon">〰️</span>VIBRATION</div>
+          <div class="palette-item" draggable="true" data-type="current"> <span class="pi-icon">⚡</span>CURRENT</div>
+        </div>
+      </div>
+      <div class="palette-section">
+        <div class="palette-label">CONTROL</div>
+        <div class="palette-grid">
+          <div class="palette-item" draggable="true" data-type="valve">  <span class="pi-icon">🔀</span>VALVE</div>
+          <div class="palette-item" draggable="true" data-type="plc">    <span class="pi-icon">🖥️</span>PLC</div>
+          <div class="palette-item" draggable="true" data-type="vfd">    <span class="pi-icon">🎛️</span>VFD</div>
+          <div class="palette-item" draggable="true" data-type="hmi">    <span class="pi-icon">📟</span>HMI</div>
+        </div>
+      </div>
+      <div class="palette-section">
+        <div class="palette-label">POWER</div>
+        <div class="palette-grid">
+          <div class="palette-item" draggable="true" data-type="generator"><span class="pi-icon">⚡</span>GENERATOR</div>
+          <div class="palette-item" draggable="true" data-type="breaker">  <span class="pi-icon">🔌</span>BREAKER</div>
+          <div class="palette-item" draggable="true" data-type="ups">      <span class="pi-icon">🔋</span>UPS</div>
+          <div class="palette-item" draggable="true" data-type="solar">    <span class="pi-icon">☀️</span>SOLAR</div>
+        </div>
+      </div>
+      <div class="palette-section">
+        <div class="palette-label">TOOLS</div>
+        <button class="btn success" onclick="startConnectMode()">⚡ CONNECT NODES</button>
+        <button class="btn" onclick="clearCanvas()">🗑️ CLEAR ALL</button>
+        <button class="btn" onclick="exportJSON()">💾 EXPORT JSON</button>
+        <button class="btn" onclick="importJSON()">📂 IMPORT</button>
+        <button class="btn" onclick="runAll()">▶ START ALL</button>
+        <button class="btn danger" onclick="stopAll()">■ STOP ALL</button>
+      </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div id="canvas-wrap"
+      ondragover="event.preventDefault()"
+      ondrop="onDrop(event)"
+    >
+      <div class="canvas-grid"></div>
+      <div id="drop-hint">
+        <div class="hint-ring">
+          <div style="font-size:36px">🏭</div>
+          <div class="hint-text">DRAG COMPONENTS<br>TO BUILD YOUR<br>WORKSHOP</div>
+        </div>
+      </div>
+      <svg id="wire-svg"></svg>
+      <div id="canvas"></div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div id="rightpanel">
+      <div class="panel-section">
+        <div class="panel-title">// NODE INSPECTOR</div>
+        <div id="inspector-empty">SELECT A NODE<br>TO VIEW PROPERTIES</div>
+        <div id="inspector-content">
+          <div class="inspector-name" id="ins-name">—</div>
+          <div class="prop-row"><span class="prop-label">TYPE</span><span class="prop-value" id="ins-type">—</span></div>
+          <div class="prop-row"><span class="prop-label">STATUS</span><span class="prop-value" id="ins-status">—</span></div>
+          <div class="prop-row"><span class="prop-label">ID</span><span class="prop-value" id="ins-id">—</span></div>
+
+          <div class="toggle-row" style="margin-top:12px">
+            <span class="prop-label">POWER</span>
+            <label class="toggle"><input type="checkbox" id="ins-power" onchange="togglePower(this)"><span class="toggle-slider"></span></label>
+          </div>
+
+          <div class="slider-row" id="speed-row">
+            <div class="slider-label"><span>SPEED</span><span class="slider-val" id="speed-label">50%</span></div>
+            <input type="range" min="0" max="100" value="50" id="ins-speed" oninput="updateSpeed(this)">
+          </div>
+
+          <div class="slider-row">
+            <div class="slider-label"><span>SETPOINT</span><span class="slider-val" id="setpoint-label">75%</span></div>
+            <input type="range" min="0" max="100" value="75" id="ins-setpoint" oninput="updateSetpoint(this)">
+          </div>
+
+          <div class="color-row">
+            <span>NODE COLOR</span>
+            <input type="color" id="ins-color" value="#00d4ff" onchange="updateColor(this)">
+          </div>
+
+          <button class="btn" onclick="renameNode()">✏️ RENAME NODE</button>
+          <button class="btn danger" onclick="deleteSelected()">🗑️ DELETE NODE</button>
+        </div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">// SYSTEM METRICS</div>
+        <div class="prop-row"><span class="prop-label">NODES ACTIVE</span><span class="prop-value" id="active-count">0 / 0</span></div>
+        <div class="prop-row"><span class="prop-label">CONNECTIONS</span><span class="prop-value" id="conn-count">0</span></div>
+        <div class="prop-row"><span class="prop-label">POWER DRAW</span><span class="prop-value" id="power-draw">0 kW</span></div>
+        <div class="prop-row"><span class="prop-label">EFFICIENCY</span><span class="prop-value" id="efficiency">—</span></div>
+        <div class="prop-row"><span class="prop-label">UPTIME</span><span class="prop-value" id="uptime">00:00:00</span></div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">// ALARM LOG</div>
+        <div id="alerts"></div>
+      </div>
+
+      <div class="panel-section">
+        <div class="panel-title">// QUICK ACTIONS</div>
+        <button class="btn" onclick="autoLayout()">🔲 AUTO LAYOUT</button>
+        <button class="btn" onclick="toggleGrid()">⊞ TOGGLE GRID</button>
+        <button class="btn" onclick="fitView()">⊡ FIT VIEW</button>
+        <button class="btn" onclick="addAlarmDemo()">🔔 TEST ALARM</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div id="bottombar">
+    <div class="coord" id="coords">X: 0  Y: 0</div>
+    <div class="bottombar-actions">
+      <button class="small-btn" onclick="zoom(-0.1)">−  ZOOM</button>
+      <span style="color:var(--text-secondary);font-size:9px" id="zoom-label">100%</span>
+      <button class="small-btn" onclick="zoom(0.1)">+ ZOOM</button>
+    </div>
+    <div style="font-size:9px;color:var(--text-muted)">WORKSHOP DIGITAL TWIN  •  NASA CONTROL CENTER  •  REV 2.5.0</div>
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu">
+  <div class="ctx-item" onclick="ctxToggle()">⚡ Toggle Power</div>
+  <div class="ctx-item" onclick="ctxConnect()">🔗 Start Connection</div>
+  <div class="ctx-item" onclick="ctxDuplicate()">⧉ Duplicate</div>
+  <div class="ctx-item" onclick="renameNode()">✏️ Rename</div>
+  <div class="ctx-item sep red" onclick="deleteSelected()">🗑️ Delete</div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h3 id="modal-title">RENAME NODE</h3>
+    <div class="modal-row">
+      <label>NODE NAME</label>
+      <input type="text" id="modal-input" placeholder="Enter name...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn success" onclick="modalConfirm()">✓ CONFIRM</button>
+      <button class="btn" onclick="closeModal()">✕ CANCEL</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────
+//  STARFIELD
+// ─────────────────────────────────────────
+(function(){
+  const c = document.getElementById('starfield');
+  const ctx = c.getContext('2d');
+  let W, H, stars = [];
+  function resize(){ W=c.width=window.innerWidth; H=c.height=window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  for(let i=0;i<200;i++) stars.push({x:Math.random(),y:Math.random(),r:Math.random()*1.2+.2,t:Math.random()*6.28});
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    stars.forEach(s=>{
+      s.t+=0.01;
+      const a = 0.4+Math.sin(s.t)*0.3;
+      ctx.beginPath(); ctx.arc(s.x*W, s.y*H, s.r, 0, 6.28);
+      ctx.fillStyle = `rgba(180,220,255,${a})`; ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+let nodes = {};
+let connections = [];
+let nodeCounter = 0;
+let selectedId = null;
+let connectMode = false;
+let connectFirst = null;
+let zoomLevel = 1;
+let gridVisible = true;
+let startTime = Date.now();
+
+const TYPE_CONFIG = {
+  motor:      {emoji:'⚙️', label:'MOTOR',      unit:'RPM', baseVal:1450, color:'#00d4ff'},
+  pump:       {emoji:'🔄', label:'PUMP',       unit:'L/min',baseVal:120,  color:'#00aaff'},
+  conveyor:   {emoji:'➡️', label:'CONVEYOR',   unit:'m/s', baseVal:1.5,  color:'#00ccff'},
+  compressor: {emoji:'🌀', label:'COMPRESSOR', unit:'bar', baseVal:8.5,  color:'#44aaff'},
+  robot:      {emoji:'🤖', label:'ROBOT',      unit:'%',   baseVal:85,   color:'#aa44ff'},
+  drill:      {emoji:'🔩', label:'DRILL',      unit:'RPM', baseVal:3200, color:'#ff8800'},
+  tank:       {emoji:'🛢️', label:'TANK',       unit:'%',   baseVal:65,   color:'#0088ff'},
+  silo:       {emoji:'🏗️', label:'SILO',       unit:'ton', baseVal:24,   color:'#4488ff'},
+  hopper:     {emoji:'📦', label:'HOPPER',     unit:'kg',  baseVal:340,  color:'#6666ff'},
+  vessel:     {emoji:'⚗️', label:'VESSEL',     unit:'°C',  baseVal:85,   color:'#ff4488'},
+  temp:       {emoji:'🌡️', label:'TEMP',       unit:'°C',  baseVal:72,   color:'#ff6644'},
+  pressure:   {emoji:'📊', label:'PRESSURE',   unit:'PSI', baseVal:145,  color:'#ff8800'},
+  flow:       {emoji:'💧', label:'FLOW',       unit:'L/s', baseVal:45,   color:'#0099ff'},
+  level:      {emoji:'📏', label:'LEVEL',      unit:'%',   baseVal:58,   color:'#00bbff'},
+  vibration:  {emoji:'〰️', label:'VIBRATION',  unit:'mm/s',baseVal:2.3,  color:'#ffcc00'},
+  current:    {emoji:'⚡', label:'CURRENT',    unit:'A',   baseVal:38,   color:'#ffcc00'},
+  valve:      {emoji:'🔀', label:'VALVE',      unit:'%',   baseVal:75,   color:'#00ff88'},
+  plc:        {emoji:'🖥️', label:'PLC',        unit:'ms',  baseVal:12,   color:'#00ff44'},
+  vfd:        {emoji:'🎛️', label:'VFD',        unit:'Hz',  baseVal:50,   color:'#44ffaa'},
+  hmi:        {emoji:'📟', label:'HMI',        unit:'',    baseVal:0,    color:'#88ffcc'},
+  generator:  {emoji:'⚡', label:'GENERATOR',  unit:'kW',  baseVal:250,  color:'#ffcc00'},
+  breaker:    {emoji:'🔌', label:'BREAKER',    unit:'A',   baseVal:100,  color:'#ff8800'},
+  ups:        {emoji:'🔋', label:'UPS',        unit:'%',   baseVal:94,   color:'#00ff88'},
+  solar:      {emoji:'☀️', label:'SOLAR',      unit:'kW',  baseVal:45,   color:'#ffdd00'},
+};
+
+// ─────────────────────────────────────────
+//  CLOCK & UPTIME
+// ─────────────────────────────────────────
+function updateClock(){
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    [now.getHours(),now.getMinutes(),now.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+  const up = Math.floor((Date.now()-startTime)/1000);
+  const h=Math.floor(up/3600), m=Math.floor(up%3600/60), s=up%60;
+  document.getElementById('uptime').textContent = [h,m,s].map(v=>String(v).padStart(2,'0')).join(':');
+}
+setInterval(updateClock,1000);
+
+// ─────────────────────────────────────────
+//  DRAG & DROP
+// ─────────────────────────────────────────
+let dragType = null;
+document.querySelectorAll('.palette-item').forEach(el=>{
+  el.addEventListener('dragstart', e=>{ dragType = el.dataset.type; });
+  el.addEventListener('dragend', ()=>{ dragType=null; });
+});
+
+function onDrop(e){
+  e.preventDefault();
+  if(!dragType) return;
+  const wrap = document.getElementById('canvas-wrap');
+  const rect = wrap.getBoundingClientRect();
+  const x = Math.round((e.clientX - rect.left - 45) / 40) * 40;
+  const y = Math.round((e.clientY - rect.top  - 35) / 40) * 40;
+  createNode(dragType, x, y);
+  document.getElementById('drop-hint').classList.add('hide');
+}
+
+// ─────────────────────────────────────────
+//  CREATE NODE
+// ─────────────────────────────────────────
+function createNode(type, x, y, opts={}){
+  const cfg = TYPE_CONFIG[type] || TYPE_CONFIG.motor;
+  const id = 'node_' + (++nodeCounter);
+  const node = {
+    id, type, x, y,
+    label: opts.label || cfg.label + ' ' + nodeCounter,
+    emoji: cfg.emoji, unit: cfg.unit,
+    baseVal: cfg.baseVal,
+    color: opts.color || cfg.color,
+    on: opts.on ?? false,
+    speed: opts.speed ?? 50,
+    setpoint: opts.setpoint ?? 75,
+    value: cfg.baseVal,
+  };
+  nodes[id] = node;
+  renderNode(node);
+  updateMetrics();
+  return id;
+}
+
+function renderNode(node){
+  const existing = document.getElementById(node.id);
+  if(existing) existing.remove();
+
+  const el = document.createElement('div');
+  el.id = node.id;
+  el.className = 'node ' + node.type + (node.on ? ' on running' : '');
+  el.style.left = node.x + 'px';
+  el.style.top  = node.y + 'px';
+  el.style.borderColor = node.on ? node.color + '88' : '';
+  if(node.on) el.style.boxShadow = `0 0 12px ${node.color}44`;
+
+  if(node.type === 'tank' || node.type === 'vessel' || node.type === 'silo'){
+    const lvl = Math.min(100, Math.max(0, node.value));
+    el.innerHTML = `
+      <div class="node-status"></div>
+      <div class="tank-body" style="border-color:${node.color}88; color:${node.color}">
+        <div class="tank-fill" style="height:${lvl}%; background:linear-gradient(180deg, ${node.color}44, ${node.color}88)">
+          ${node.on ? '<div class="tank-bubble" style="left:30%;animation-delay:.5s"></div><div class="tank-bubble" style="left:60%;animation-delay:1s"></div>' : ''}
+        </div>
+      </div>
+      <div class="node-label">${node.label}</div>
+      <div class="node-value">${lvl.toFixed(0)}${node.unit}</div>`;
+  } else if(node.type === 'conveyor'){
+    el.innerHTML = `
+      <div class="node-status"></div>
+      <div class="conveyor-body">
+        <div class="conveyor-belt ${node.on?'':'paused'}"></div>
+      </div>
+      <div class="node-label">${node.label}</div>
+      <div class="node-value">${node.on ? (node.speed*0.02).toFixed(2) : '0.00'} m/s</div>`;
+  } else {
+    const dispVal = node.on ? (node.value * node.speed / 100).toFixed(1) : '—';
+    el.innerHTML = `
+      <div class="node-status"></div>
+      <div class="node-icon" style="filter: drop-shadow(0 0 6px ${node.color}${node.on?'88':'22'})">${node.emoji}</div>
+      <div class="node-label">${node.label}</div>
+      <div class="node-value">${dispVal} ${node.on ? node.unit : ''}</div>`;
+  }
+
+  // Events
+  el.addEventListener('mousedown', e => onNodeMouseDown(e, node.id));
+  el.addEventListener('contextmenu', e => onContextMenu(e, node.id));
+  el.addEventListener('click', e => { e.stopPropagation(); onNodeClick(node.id); });
+
+  document.getElementById('canvas').appendChild(el);
+}
+
+// ─────────────────────────────────────────
+//  NODE DRAGGING
+// ─────────────────────────────────────────
+let dragging = null, dragOX = 0, dragOY = 0;
+
+function onNodeMouseDown(e, id){
+  if(connectMode){ return; }
+  if(e.button !== 0) return;
+  e.stopPropagation();
+  dragging = id;
+  const el = document.getElementById(id);
+  const rect = el.getBoundingClientRect();
+  dragOX = e.clientX - rect.left;
+  dragOY = e.clientY - rect.top;
+  selectNode(id);
+}
+
+document.addEventListener('mousemove', e => {
+  if(!dragging) return;
+  const wrap = document.getElementById('canvas-wrap');
+  const wr = wrap.getBoundingClientRect();
+  const x = Math.round((e.clientX - wr.left - dragOX) / 40)*40;
+  const y = Math.round((e.clientY - wr.top - dragOY) / 40)*40;
+  const n = nodes[dragging];
+  n.x = Math.max(0, x); n.y = Math.max(0, y);
+  const el = document.getElementById(dragging);
+  el.style.left = n.x + 'px'; el.style.top = n.y + 'px';
+  document.getElementById('coords').textContent = `X: ${n.x}  Y: ${n.y}`;
+  redrawWires();
+});
+
+document.addEventListener('mouseup', () => { dragging = null; });
+
+// ─────────────────────────────────────────
+//  SELECT NODE
+// ─────────────────────────────────────────
+function selectNode(id){
+  if(selectedId){
+    const prev = document.getElementById(selectedId);
+    if(prev) prev.classList.remove('selected');
+  }
+  selectedId = id;
+  const el = document.getElementById(id);
+  if(el) el.classList.add('selected');
+  showInspector(id);
+}
+
+function onNodeClick(id){
+  if(connectMode){
+    if(!connectFirst){ connectFirst = id; return; }
+    if(connectFirst !== id){
+      addConnection(connectFirst, id);
+      connectFirst = null;
+      endConnectMode();
+    }
+    return;
+  }
+  selectNode(id);
+}
+
+document.getElementById('canvas-wrap').addEventListener('click', ()=>{
+  if(selectedId){
+    document.getElementById(selectedId)?.classList.remove('selected');
+    selectedId = null;
+  }
+  document.getElementById('inspector-empty').style.display='block';
+  document.getElementById('inspector-content').classList.remove('active');
+  closeCtxMenu();
+});
+
+// ─────────────────────────────────────────
+//  INSPECTOR
+// ─────────────────────────────────────────
+function showInspector(id){
+  const n = nodes[id]; if(!n) return;
+  document.getElementById('inspector-empty').style.display='none';
+  document.getElementById('inspector-content').classList.add('active');
+  document.getElementById('ins-name').textContent = n.label;
+  document.getElementById('ins-type').textContent = n.type.toUpperCase();
+  document.getElementById('ins-status').textContent = n.on ? 'RUNNING' : 'OFFLINE';
+  document.getElementById('ins-status').style.color = n.on ? 'var(--accent-green)' : 'var(--accent-red)';
+  document.getElementById('ins-id').textContent = id;
+  document.getElementById('ins-power').checked = n.on;
+  document.getElementById('ins-speed').value = n.speed;
+  document.getElementById('speed-label').textContent = n.speed + '%';
+  document.getElementById('ins-setpoint').value = n.setpoint;
+  document.getElementById('setpoint-label').textContent = n.setpoint + '%';
+  document.getElementById('ins-color').value = n.color;
+}
+
+function togglePower(inp){
+  if(!selectedId) return;
+  const n = nodes[selectedId];
+  n.on = inp.checked;
+  renderNode(n);
+  showInspector(selectedId);
+  document.getElementById(selectedId).classList.add('selected');
+  updateMetrics();
+  addAlert(n.on ? 'info' : 'warn', `${n.label} ${n.on ? 'STARTED':'STOPPED'}`);
+}
+
+function updateSpeed(inp){
+  if(!selectedId) return;
+  nodes[selectedId].speed = +inp.value;
+  document.getElementById('speed-label').textContent = inp.value + '%';
+  renderNode(nodes[selectedId]);
+  document.getElementById(selectedId).classList.add('selected');
+  updateMetrics();
+}
+
+function updateSetpoint(inp){
+  if(!selectedId) return;
+  nodes[selectedId].setpoint = +inp.value;
+  document.getElementById('setpoint-label').textContent = inp.value + '%';
+}
+
+function updateColor(inp){
+  if(!selectedId) return;
+  nodes[selectedId].color = inp.value;
+  renderNode(nodes[selectedId]);
+  document.getElementById(selectedId).classList.add('selected');
+}
+
+// ─────────────────────────────────────────
+//  CONNECTIONS / WIRES
+// ─────────────────────────────────────────
+function addConnection(a, b){
+  const exists = connections.find(c=>(c.a===a&&c.b===b)||(c.a===b&&c.b===a));
+  if(exists) return;
+  connections.push({a,b,id:'conn_'+Date.now()});
+  redrawWires();
+  updateMetrics();
+  addAlert('info', `Connected ${nodes[a]?.label} → ${nodes[b]?.label}`);
+}
+
+function redrawWires(){
+  const svg = document.getElementById('wire-svg');
+  const wrap = document.getElementById('canvas-wrap');
+  const wr = wrap.getBoundingClientRect();
+  svg.setAttribute('width', wr.width);
+  svg.setAttribute('height', wr.height);
+
+  // Remove old wires
+  [...svg.querySelectorAll('.wire-group')].forEach(g=>g.remove());
+
+  connections.forEach(conn => {
+    const aEl = document.getElementById(conn.a);
+    const bEl = document.getElementById(conn.b);
+    if(!aEl || !bEl) return;
+
+    const aR = aEl.getBoundingClientRect();
+    const bR = bEl.getBoundingClientRect();
+    const x1 = aR.left + aR.width/2 - wr.left;
+    const y1 = aR.top  + aR.height/2 - wr.top;
+    const x2 = bR.left + bR.width/2  - wr.left;
+    const y2 = bR.top  + bR.height/2 - wr.top;
+
+    const na = nodes[conn.a], nb = nodes[conn.b];
+    const active = na?.on || nb?.on;
+    const color = active ? '#00d4ff' : '#1a4060';
+    const glow  = active ? `drop-shadow(0 0 4px ${color})` : 'none';
+
+    const mx = (x1+x2)/2;
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.className.baseVal = 'wire-group';
+
+    // BG line
+    const bg = document.createElementNS('http://www.w3.org/2000/svg','path');
+    bg.setAttribute('d',`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+    bg.setAttribute('stroke', color+'44'); bg.setAttribute('stroke-width','3');
+    bg.setAttribute('fill','none');
+    g.appendChild(bg);
+
+    // Animated flow
+    const fl = document.createElementNS('http://www.w3.org/2000/svg','path');
+    fl.setAttribute('d',`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+    fl.setAttribute('stroke', color); fl.setAttribute('stroke-width','1.5');
+    fl.setAttribute('fill','none');
+    fl.className.baseVal = 'pipe-flow' + (active ? '' : ' paused');
+    fl.setAttribute('filter', glow);
+    g.appendChild(fl);
+
+    svg.appendChild(g);
+  });
+}
+
+// ─────────────────────────────────────────
+//  CONNECT MODE
+// ─────────────────────────────────────────
+function startConnectMode(){
+  connectMode = true; connectFirst = null;
+  document.getElementById('connect-mode-badge').classList.add('active');
+  document.getElementById('canvas-wrap').style.cursor = 'crosshair';
+}
+function endConnectMode(){
+  connectMode = false; connectFirst = null;
+  document.getElementById('connect-mode-badge').classList.remove('active');
+  document.getElementById('canvas-wrap').style.cursor = '';
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ endConnectMode(); closeModal(); closeCtxMenu(); }});
+
+// ─────────────────────────────────────────
+//  METRICS
+// ─────────────────────────────────────────
+function updateMetrics(){
+  const all = Object.values(nodes);
+  const active = all.filter(n=>n.on);
+  document.getElementById('active-count').textContent = `${active.length} / ${all.length}`;
+  document.getElementById('conn-count').textContent = connections.length;
+  const pw = active.reduce((s,n)=>s + (n.baseVal * n.speed / 100 * 0.05), 0);
+  document.getElementById('power-draw').textContent = pw.toFixed(1) + ' kW';
+  const eff = all.length ? ((active.length / all.length)*100).toFixed(0) + '%' : '—';
+  document.getElementById('efficiency').textContent = eff;
+  document.getElementById('nc').textContent = all.length;
+}
+
+// Live value jitter
+setInterval(()=>{
+  Object.values(nodes).forEach(n=>{
+    if(!n.on) return;
+    n.value = n.baseVal * (0.9 + Math.random()*0.2);
+    const el = document.getElementById(n.id);
+    if(!el) return;
+    const vEl = el.querySelector('.node-value');
+    if(!vEl) return;
+    if(n.type==='conveyor') vEl.textContent = (n.speed*0.02).toFixed(2) + ' m/s';
+    else if(n.type==='tank'||n.type==='vessel'||n.type==='silo'){
+      const pct = Math.min(100,Math.max(0,n.value));
+      const fill = el.querySelector('.tank-fill');
+      if(fill) fill.style.height = pct.toFixed(0)+'%';
+      vEl.textContent = pct.toFixed(0) + n.unit;
+    } else {
+      vEl.textContent = (n.value * n.speed/100).toFixed(1) + ' ' + n.unit;
+    }
+  });
+}, 1200);
+
+// ─────────────────────────────────────────
+//  ALERTS
+// ─────────────────────────────────────────
+function addAlert(type, msg){
+  const now = new Date();
+  const t = [now.getHours(),now.getMinutes(),now.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+  const box = document.getElementById('alerts');
+  const div = document.createElement('div');
+  div.className = 'alert-item ' + (type==='warn'?'warn':type==='info'?'info':'');
+  div.innerHTML = `<span class="alert-time">${t}</span><span class="alert-msg">${msg}</span>`;
+  box.prepend(div);
+  while(box.children.length > 20) box.removeChild(box.lastChild);
+}
+
+function addAlarmDemo(){
+  const msgs = ['HIGH PRESSURE on VESSEL-2','FLOW SENSOR anomaly detected','MOTOR-3 vibration exceeded threshold','TEMPERATURE spike: ZONE B','CONVEYOR belt slip detected'];
+  const types = ['','warn','info'];
+  addAlert(types[Math.floor(Math.random()*types.length)], msgs[Math.floor(Math.random()*msgs.length)]);
+}
+
+// Initial alerts
+setTimeout(()=>addAlert('warn','SYSTEM STARTUP COMPLETE'),300);
+setTimeout(()=>addAlert('info','Digital Twin sync established'),800);
+setTimeout(()=>addAlert('warn','Awaiting component placement'),1200);
+
+// ─────────────────────────────────────────
+//  CONTEXT MENU
+// ─────────────────────────────────────────
+let ctxNodeId = null;
+function onContextMenu(e, id){
+  e.preventDefault(); e.stopPropagation();
+  ctxNodeId = id; selectNode(id);
+  const menu = document.getElementById('ctx-menu');
+  menu.style.left = e.clientX+'px'; menu.style.top = e.clientY+'px';
+  menu.classList.add('open');
+}
+function closeCtxMenu(){ document.getElementById('ctx-menu').classList.remove('open'); }
+document.addEventListener('click', closeCtxMenu);
+
+function ctxToggle(){
+  if(!ctxNodeId) return;
+  const n = nodes[ctxNodeId];
+  n.on = !n.on; renderNode(n);
+  if(ctxNodeId===selectedId) showInspector(ctxNodeId);
+  updateMetrics();
+  closeCtxMenu();
+}
+function ctxConnect(){ startConnectMode(); connectFirst = ctxNodeId; closeCtxMenu(); }
+function ctxDuplicate(){
+  if(!ctxNodeId) return;
+  const n = nodes[ctxNodeId];
+  createNode(n.type, n.x+50, n.y+50, {color:n.color});
+  closeCtxMenu();
+}
+
+// ─────────────────────────────────────────
+//  MODAL
+// ─────────────────────────────────────────
+function renameNode(){
+  if(!selectedId) return;
+  document.getElementById('modal-title').textContent = 'RENAME NODE';
+  document.getElementById('modal-input').value = nodes[selectedId].label;
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('modal-input').focus(),100);
+}
+function closeModal(){ document.getElementById('modal-overlay').classList.remove('open'); }
+function modalConfirm(){
+  if(!selectedId) return;
+  const v = document.getElementById('modal-input').value.trim();
+  if(v){ nodes[selectedId].label = v; renderNode(nodes[selectedId]); document.getElementById(selectedId).classList.add('selected'); showInspector(selectedId); }
+  closeModal();
+}
+document.getElementById('modal-input').addEventListener('keydown', e=>{ if(e.key==='Enter') modalConfirm(); });
+
+// ─────────────────────────────────────────
+//  GLOBAL ACTIONS
+// ─────────────────────────────────────────
+function deleteSelected(){
+  if(!selectedId) return;
+  document.getElementById(selectedId)?.remove();
+  connections = connections.filter(c=>c.a!==selectedId && c.b!==selectedId);
+  delete nodes[selectedId]; selectedId = null;
+  document.getElementById('inspector-empty').style.display='block';
+  document.getElementById('inspector-content').classList.remove('active');
+  redrawWires(); updateMetrics();
+}
+
+function runAll(){
+  Object.values(nodes).forEach(n=>{ n.on=true; renderNode(n); });
+  updateMetrics(); addAlert('info','ALL NODES STARTED');
+}
+function stopAll(){
+  Object.values(nodes).forEach(n=>{ n.on=false; renderNode(n); });
+  updateMetrics(); addAlert('warn','ALL NODES STOPPED');
+}
+
+function clearCanvas(){
+  if(!confirm('Clear all nodes?')) return;
+  document.getElementById('canvas').innerHTML='';
+  document.getElementById('wire-svg').innerHTML='';
+  nodes={}; connections=[]; selectedId=null; nodeCounter=0;
+  document.getElementById('inspector-empty').style.display='block';
+  document.getElementById('inspector-content').classList.remove('active');
+  document.getElementById('drop-hint').classList.remove('hide');
+  updateMetrics();
+}
+
+function autoLayout(){
+  const all = Object.values(nodes);
+  const cols = Math.ceil(Math.sqrt(all.length));
+  all.forEach((n,i)=>{
+    n.x = 80 + (i%cols)*160;
+    n.y = 80 + Math.floor(i/cols)*140;
+    renderNode(n);
+  });
+  redrawWires();
+}
+
+function toggleGrid(){
+  gridVisible = !gridVisible;
+  document.querySelector('.canvas-grid').style.opacity = gridVisible ? '.3' : '0';
+}
+
+function fitView(){ /* simple reset */ }
+
+function zoom(delta){
+  zoomLevel = Math.min(2, Math.max(0.3, zoomLevel+delta));
+  document.getElementById('canvas').style.transform = `scale(${zoomLevel})`;
+  document.getElementById('canvas').style.transformOrigin = '0 0';
+  document.getElementById('zoom-label').textContent = Math.round(zoomLevel*100)+'%';
+}
+
+function exportJSON(){
+  const data = JSON.stringify({nodes, connections}, null, 2);
+  const a = document.createElement('a');
+  a.href = 'data:application/json,' + encodeURIComponent(data);
+  a.download = 'scada-twin.json'; a.click();
+}
+
+function importJSON(){
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange = e=>{
+    const fr = new FileReader();
+    fr.onload = ev=>{
+      try{
+        const data = JSON.parse(ev.target.result);
+        clearCanvas();
+        Object.values(data.nodes||{}).forEach(n=>{
+          createNode(n.type, n.x, n.y, {label:n.label, color:n.color, on:n.on, speed:n.speed});
+        });
+        (data.connections||[]).forEach(c=>addConnection(c.a, c.b));
+        addAlert('info','Layout imported successfully');
+      } catch(err){ alert('Invalid JSON file'); }
+    };
+    fr.readAsText(e.target.files[0]);
+  };
+  inp.click();
+}
+
+// Mouse coords
+document.getElementById('canvas-wrap').addEventListener('mousemove', e=>{
+  const wr = document.getElementById('canvas-wrap').getBoundingClientRect();
+  document.getElementById('coords').textContent = `X: ${e.clientX-wr.left|0}  Y: ${e.clientY-wr.top|0}`;
+});
+
+// ─────────────────────────────────────────
+//  DEMO LAYOUT
+// ─────────────────────────────────────────
+(function seedDemo(){
+  setTimeout(()=>{
+    const a = createNode('generator', 60,  60,  {label:'GEN-01'});
+    const b = createNode('plc',       260, 60,  {label:'PLC-MAIN'});
+    const c = createNode('motor',     460, 60,  {label:'MOTOR-01'});
+    const d = createNode('pump',      460, 220, {label:'PUMP-01'});
+    const e2= createNode('tank',      660, 60,  {label:'TANK-A'});
+    const f = createNode('conveyor',  260, 220, {label:'LINE-01'});
+    const g = createNode('temp',      660, 220, {label:'TEMP-S1'});
+    const h = createNode('valve',     80,  220, {label:'VALVE-IN'});
+
+    nodes[a].on=true; renderNode(nodes[a]);
+    nodes[b].on=true; renderNode(nodes[b]);
+    nodes[c].on=true; nodes[c].speed=80; renderNode(nodes[c]);
+    nodes[d].on=true; renderNode(nodes[d]);
+    nodes[e2].on=true; nodes[e2].value=72; renderNode(nodes[e2]);
+    nodes[f].on=true; renderNode(nodes[f]);
+    nodes[g].on=true; renderNode(nodes[g]);
+    nodes[h].on=false; renderNode(nodes[h]);
+
+    addConnection(a, b); addConnection(b, c); addConnection(b, f);
+    addConnection(c, d); addConnection(d, e2); addConnection(e2, g); addConnection(h, f);
+    document.getElementById('drop-hint').classList.add('hide');
+    updateMetrics();
+    showInspector(b); selectNode(b);
+  }, 200);
+})();
+</script>
+</body>
+</html>
