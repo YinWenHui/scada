@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FACESCAN — FLOOR PLAN NAVIGATOR</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap');
+
+:root {
+  --void: #010810;
+  --deep: #030f1c;
+  --panel: #061624;
+  --border: #0c2a44;
+  --cyan: #00d4ff;
+  --cyan2: #00fff0;
+  --orange: #ff6b1a;
+  --amber: #ffb700;
+  --green: #00ff88;
+  --red: #ff2d55;
+  --purple: #b060ff;
+  --dim: #0e2a40;
+  --text: #9ecde8;
+  --muted: #2e5c7a;
+  --gcyan: 0 0 10px #00d4ff99, 0 0 25px #00d4ff33;
+  --gorange: 0 0 10px #ff6b1a88;
+  --ggreen: 0 0 10px #00ff8888;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--void);
+  color: var(--text);
+  font-family: 'Exo 2', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* STAR BG */
+#stars { position:fixed; inset:0; z-index:0; pointer-events:none; }
+.st { position:absolute; border-radius:50%; background:#fff; animation: tw var(--d) ease-in-out infinite; animation-delay: var(--dl); }
+@keyframes tw { 0%,100%{opacity:var(--a)} 50%{opacity:0.05} }
+body::after {
+  content:''; position:fixed; inset:0; z-index:1; pointer-events:none;
+  background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.008) 3px,rgba(0,212,255,0.008) 4px);
+}
+
+.wrap { position:relative; z-index:2; display:grid; grid-template-rows:auto 1fr; min-height:100vh; }
+
+/* ── HEADER ── */
+header {
+  background: linear-gradient(90deg,#010c18,#051828,#010c18);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+  box-shadow: 0 2px 30px rgba(0,212,255,0.08);
+}
+.logo { font-family:'Orbitron',monospace; font-weight:900; font-size:18px; color:var(--cyan); text-shadow:var(--gcyan); letter-spacing:2px; }
+.logo em { color:var(--orange); font-style:normal; }
+.hbadge { font-size:9px; letter-spacing:3px; color:var(--amber); border:1px solid var(--amber)66; padding:3px 10px; animation: pbadge 2s ease-in-out infinite; }
+@keyframes pbadge { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.hclock { font-family:'Orbitron',monospace; font-size:11px; color:var(--cyan); letter-spacing:2px; }
+.hstats { display:flex; gap:16px; }
+.hs { text-align:center; }
+.hs-v { font-family:'Orbitron',monospace; font-size:14px; color:var(--green); text-shadow:var(--ggreen); }
+.hs-l { font-size:8px; color:var(--muted); letter-spacing:2px; }
+
+/* ── MAIN LAYOUT ── */
+.main { display:grid; grid-template-columns:220px 1fr 260px; gap:0; height:calc(100vh - 64px); overflow:hidden; }
+
+/* ── LEFT: 3D BUILDING SELECTOR ── */
+.bld-panel {
+  background: linear-gradient(180deg,#030f1c,#020c18);
+  border-right: 1px solid var(--border);
+  padding: 16px 12px;
+  overflow-y: auto;
+  display: flex; flex-direction:column; gap:16px;
+}
+.bld-panel-title {
+  font-family:'Orbitron',monospace; font-size:9px; letter-spacing:3px; color:var(--muted);
+  text-align:center; padding-bottom:10px; border-bottom:1px solid var(--dim);
+}
+
+/* 3D BUILDING STACK */
+.building-stack { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.bld-label {
+  font-family:'Orbitron',monospace; font-size:9px; letter-spacing:2px;
+  color:var(--text); margin-bottom:4px; text-align:center;
+}
+.bld-label.active { color:var(--cyan); text-shadow:var(--gcyan); }
+
+.floor-stack { display:flex; flex-direction:column-reverse; gap:3px; width:160px; }
+
+.floor-chip {
+  position:relative;
+  height:30px; width:100%;
+  background: linear-gradient(90deg,#061624,#0a2236,#061624);
+  border:1px solid var(--dim);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 10px;
+  cursor:pointer;
+  transition:all 0.2s;
+  transform-style: preserve-3d;
+  clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+}
+.floor-chip:hover { border-color:var(--cyan); background:linear-gradient(90deg,#071e30,#0e2e46,#071e30); }
+.floor-chip.selected {
+  border-color:var(--cyan); background:linear-gradient(90deg,#082840,#0f3a58,#082840);
+  box-shadow: var(--gcyan);
+}
+.floor-chip.selected::before {
+  content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+  background:var(--cyan); box-shadow:var(--gcyan);
+}
+.fc-num { font-family:'Orbitron',monospace; font-size:9px; color:var(--cyan); }
+.fc-name { font-size:8px; color:var(--muted); letter-spacing:1px; }
+.fc-doors { display:flex; gap:3px; align-items:center; }
+.fc-dot { width:5px; height:5px; border-radius:50%; background:var(--green); box-shadow:var(--ggreen); }
+.fc-dot.warn { background:var(--amber); box-shadow:0 0 5px var(--amber); }
+
+/* 3D ILLUSION CONNECTOR */
+.bld-3d-connector {
+  width:2px; height:10px; background:linear-gradient(180deg,var(--cyan),transparent);
+  margin:0 auto;
+}
+.bld-roof {
+  width:160px; height:14px;
+  background: linear-gradient(90deg,#082840,#0f3a58,#082840);
+  border:1px solid var(--cyan); border-bottom:none;
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 100%, 0 100%);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Orbitron',monospace; font-size:7px; color:var(--cyan); letter-spacing:2px;
+}
+
+/* ── CENTER: FLOOR PLAN ── */
+.plan-area {
+  background: radial-gradient(ellipse at 50% 50%, #020e1c 0%, var(--void) 80%);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+}
+
+.plan-topbar {
+  background: #020c18;
+  border-bottom:1px solid var(--dim);
+  padding:8px 16px;
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;
+}
+.plan-breadcrumb {
+  font-family:'Orbitron',monospace; font-size:11px; color:var(--cyan); letter-spacing:2px;
+}
+.plan-breadcrumb span { color:var(--muted); }
+.plan-legend { display:flex; gap:14px; font-size:9px; color:var(--muted); letter-spacing:1px; }
+.leg-item { display:flex; align-items:center; gap:5px; }
+
+.plan-canvas-wrap {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  padding:20px; position:relative; overflow:hidden;
+}
+
+/* SVG floor plan container */
+#floor-svg {
+  max-width:100%; max-height:100%;
+  filter: drop-shadow(0 0 20px rgba(0,212,255,0.15));
+  transition: opacity 0.3s;
+}
+
+/* ── DOOR PINS ── */
+.door-pin { cursor:pointer; transition:all 0.2s; }
+.door-pin:hover .pin-ring { stroke-width:2.5; }
+.door-pin.active .pin-ring { stroke:var(--amber); filter:drop-shadow(0 0 6px var(--amber)); }
+
+/* ARROW DIRECTION */
+.arrow-entry { fill:var(--green); }
+.arrow-exit { fill:var(--red); }
+.arrow-both { fill:var(--amber); }
+
+/* PULSE on door */
+@keyframes door-pulse {
+  0%{r:10;opacity:0.7} 100%{r:20;opacity:0}
+}
+.pulse-ring { animation:door-pulse 2s ease-out infinite; }
+
+/* ── RIGHT PANEL ── */
+.info-panel {
+  background: linear-gradient(180deg,#030f1c,#020c18);
+  border-left:1px solid var(--border);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.info-section {
+  border-bottom:1px solid var(--dim);
+  padding:12px 14px;
+}
+.info-title {
+  font-family:'Orbitron',monospace; font-size:9px; letter-spacing:3px;
+  color:var(--muted); margin-bottom:10px;
+  display:flex; align-items:center; gap:6px;
+}
+.info-title::before { content:'▶'; color:var(--orange); font-size:7px; }
+
+/* DOOR DETAIL CARD */
+.door-card {
+  background: rgba(0,212,255,0.04);
+  border:1px solid var(--border);
+  padding:10px;
+  margin-bottom:8px;
+  transition:all 0.2s;
+}
+.door-card.selected { border-color:var(--cyan); box-shadow:var(--gcyan); }
+.dc-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.dc-name { font-family:'Orbitron',monospace; font-size:10px; color:var(--cyan); }
+.dc-badge { font-size:8px; padding:2px 6px; border-radius:2px; letter-spacing:1px; }
+.badge-online { background:rgba(0,255,136,0.12); color:var(--green); border:1px solid var(--green)44; }
+.badge-warn { background:rgba(255,183,0,0.12); color:var(--amber); border:1px solid var(--amber)44; }
+.dc-row { display:flex; justify-content:space-between; font-size:9px; padding:2px 0; border-bottom:1px solid #0a1e2e; }
+.dc-key { color:var(--muted); }
+.dc-val { color:var(--text); font-family:'Share Tech Mono',monospace; }
+
+/* LIVE EVENTS */
+.event-feed { flex:1; overflow-y:auto; padding:10px 14px; }
+.ev { display:flex; gap:8px; padding:4px 0; border-bottom:1px solid #071422; font-size:9px; }
+.ev-time { color:var(--muted); flex-shrink:0; font-family:'Share Tech Mono',monospace; }
+.ev-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; margin-top:3px; }
+.ev-msg { color:var(--text); line-height:1.4; }
+.ev-msg.ok { color:var(--green); }
+.ev-msg.err { color:var(--red); }
+.ev-msg.warn { color:var(--amber); }
+
+/* STATS GRID */
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:12px 14px; }
+.stat-box { background:rgba(0,212,255,0.04); border:1px solid var(--dim); padding:7px; text-align:center; }
+.stat-v { font-family:'Orbitron',monospace; font-size:14px; }
+.stat-l { font-size:8px; color:var(--muted); letter-spacing:1px; margin-top:2px; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:#010810; }
+::-webkit-scrollbar-thumb { background:var(--dim); border-radius:2px; }
+::-webkit-scrollbar-thumb:hover { background:var(--cyan); }
+
+/* DOT INDICATOR */
+.dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
+.dot-g { background:var(--green); box-shadow:var(--ggreen); animation:blink 2s ease-in-out infinite; }
+.dot-a { background:var(--amber); box-shadow:0 0 6px var(--amber)88; }
+.dot-r { background:var(--red); animation:blink 0.5s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+/* TRANSITION */
+.fade-plan { animation: fadeIn 0.35s ease; }
+@keyframes fadeIn { from{opacity:0;transform:scale(0.98)} to{opacity:1;transform:scale(1)} }
+
+/* RESPONSIVE */
+@media(max-width:900px) {
+  .main { grid-template-columns:180px 1fr; }
+  .info-panel { display:none; }
+}
+@media(max-width:600px) {
+  .main { grid-template-columns:1fr; grid-template-rows:auto 1fr; }
+  .bld-panel { flex-direction:row; overflow-x:auto; height:auto; border-right:none; border-bottom:1px solid var(--border); padding:10px; }
+}
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div class="wrap">
+<!-- HEADER -->
+<header>
+  <div>
+    <div class="logo">FACE<em>SCAN</em> NAVIGATOR</div>
+    <div style="font-size:8px;color:var(--muted);letter-spacing:3px;margin-top:2px">FLOOR PLAN — DIGITAL TWIN POC · DET P6</div>
+  </div>
+  <div class="hbadge">● LIVE MONITORING</div>
+  <div class="hstats">
+    <div class="hs"><div class="hs-v" id="h-doors">18</div><div class="hs-l">DOORS</div></div>
+    <div class="hs"><div class="hs-v" id="h-online" style="color:var(--cyan)">17</div><div class="hs-l">ONLINE</div></div>
+    <div class="hs"><div class="hs-v" id="h-auth" style="color:var(--amber)">0</div><div class="hs-l">AUTH/MIN</div></div>
+  </div>
+  <div class="hclock" id="hclock">--:--:--</div>
+</header>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT: BUILDING STACKS -->
+  <div class="bld-panel">
+    <div class="bld-panel-title">◈ SELECT LOCATION</div>
+
+    <!-- BUILDING A -->
+    <div class="building-stack" id="bldA-stack">
+      <div class="bld-label active" id="bldA-lbl">BUILDING A</div>
+      <div class="bld-roof">▲ ROOF A</div>
+      <div class="floor-stack" id="floors-A">
+        <!-- floors injected by JS -->
+      </div>
+    </div>
+
+    <div style="height:1px;background:var(--dim);margin:4px 0"></div>
+
+    <!-- BUILDING B -->
+    <div class="building-stack" id="bldB-stack">
+      <div class="bld-label" id="bldB-lbl">BUILDING B</div>
+      <div class="bld-roof" style="border-color:var(--orange);background:linear-gradient(90deg,#1a0e04,#2a1808,#1a0e04)">
+        <span style="color:var(--orange)">▲ ROOF B</span>
+      </div>
+      <div class="floor-stack" id="floors-B">
+        <!-- floors injected by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: FLOOR PLAN SVG -->
+  <div class="plan-area">
+    <div class="plan-topbar">
+      <div class="plan-breadcrumb">
+        <span>BLDG</span> <span id="bc-bldg">A</span>
+        <span style="color:var(--dim);margin:0 6px">›</span>
+        <span id="bc-floor">FLOOR 1</span>
+        <span style="color:var(--dim);margin:0 6px">›</span>
+        <span id="bc-use" style="color:var(--muted);font-size:9px">GROUND LEVEL</span>
+      </div>
+      <div class="plan-legend">
+        <div class="leg-item"><svg width="14" height="10"><polygon points="0,5 10,0 10,10" fill="#00ff88"/></svg>ENTRY</div>
+        <div class="leg-item"><svg width="14" height="10"><polygon points="10,5 0,0 0,10" fill="#ff2d55"/></svg>EXIT</div>
+        <div class="leg-item"><svg width="14" height="10"><circle cx="5" cy="5" r="4" fill="#ffb700"/></svg>ENTRY+EXIT</div>
+        <div class="leg-item"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="none" stroke="#00d4ff" stroke-width="1.5"/></svg>SCANNER</div>
+      </div>
+    </div>
+    <div class="plan-canvas-wrap">
+      <svg id="floor-svg" viewBox="0 0 700 480" xmlns="http://www.w3.org/2000/svg">
+        <!-- rendered by JS -->
+      </svg>
+    </div>
+  </div>
+
+  <!-- RIGHT: INFO PANEL -->
+  <div class="info-panel">
+    <div class="info-section">
+      <div class="info-title">SELECTED DOOR</div>
+      <div id="door-detail">
+        <div style="font-size:9px;color:var(--muted);text-align:center;padding:10px 0">
+          Click a door on the floor plan
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box"><div class="stat-v" id="s-auth" style="color:var(--green)">0</div><div class="stat-l">AUTH THIS FLOOR</div></div>
+      <div class="stat-box"><div class="stat-v" id="s-deny" style="color:var(--red)">0</div><div class="stat-l">DENIED</div></div>
+      <div class="stat-box"><div class="stat-v" id="s-in" style="color:var(--cyan)">0</div><div class="stat-l">ENTERED</div></div>
+      <div class="stat-box"><div class="stat-v" id="s-out" style="color:var(--amber)">0</div><div class="stat-l">EXITED</div></div>
+    </div>
+
+    <div class="info-section" style="border-bottom:none;flex:1;display:flex;flex-direction:column">
+      <div class="info-title">LIVE EVENTS</div>
+      <div class="event-feed" id="event-feed">
+        <div class="ev"><div class="ev-time">--:--:--</div><div class="ev-dot dot-g"></div><div class="ev-msg">System ready</div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+</div><!-- /wrap -->
+
+<script>
+// ── STARS ──────────────────────────────────────────────────
+const sf = document.getElementById('stars');
+for (let i=0;i<160;i++){
+  const s=document.createElement('div');s.className='st';
+  const sz=Math.random()*2+0.4;
+  s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${2+Math.random()*6}s;--a:${0.2+Math.random()*0.7};--dl:${Math.random()*5}s`;
+  sf.appendChild(s);
+}
+
+// ── CLOCK ──────────────────────────────────────────────────
+setInterval(()=>{
+  document.getElementById('hclock').textContent=new Date().toTimeString().slice(0,8)+' UTC+7';
+},1000);
+
+// ── DATA MODEL ─────────────────────────────────────────────
+const BUILDINGS = {
+  A: {
+    label:'BUILDING A', color:'#00d4ff', floors: [
+      { id:'A1', num:1, name:'GROUND LEVEL',   doors:[
+        {id:'A1-D1',name:'MAIN ENTRANCE',   type:'both',  x:350,y:420, ip:'192.168.1.101',status:'online',auth:284,deny:2},
+        {id:'A1-D2',name:'LOBBY SIDE',      type:'entry', x:140,y:300, ip:'192.168.1.102',status:'online',auth:112,deny:0},
+        {id:'A1-D3',name:'LOADING DOCK',    type:'exit',  x:560,y:300, ip:'192.168.1.103',status:'online',auth:47, deny:1},
+      ]},
+      { id:'A2', num:2, name:'OFFICE A',        doors:[
+        {id:'A2-D1',name:'STAIR EAST',      type:'both',  x:580,y:240, ip:'192.168.1.111',status:'online',auth:198,deny:1},
+        {id:'A2-D2',name:'MEETING ROOM',    type:'entry', x:200,y:160, ip:'192.168.1.112',status:'online',auth:56, deny:0},
+        {id:'A2-D3',name:'SERVER ROOM',     type:'entry', x:480,y:380, ip:'192.168.1.113',status:'warn',  auth:33, deny:5},
+      ]},
+      { id:'A3', num:3, name:'LAB FLOOR',       doors:[
+        {id:'A3-D1',name:'LAB ENTRANCE',    type:'both',  x:350,y:60,  ip:'192.168.1.121',status:'online',auth:178,deny:3},
+        {id:'A3-D2',name:'CLEAN ROOM',      type:'entry', x:160,y:200, ip:'192.168.1.122',status:'online',auth:44, deny:8},
+      ]},
+      { id:'A4', num:4, name:'EXECUTIVE',       doors:[
+        {id:'A4-D1',name:'EXEC LOBBY',      type:'both',  x:350,y:420, ip:'192.168.1.131',status:'online',auth:62, deny:0},
+        {id:'A4-D2',name:'BOARD ROOM',      type:'entry', x:240,y:200, ip:'192.168.1.132',status:'online',auth:28, deny:2},
+      ]},
+    ]
+  },
+  B: {
+    label:'BUILDING B', color:'#ff6b1a', floors: [
+      { id:'B1', num:1, name:'RECEPTION',        doors:[
+        {id:'B1-D1',name:'MAIN GATE',       type:'both',  x:350,y:430, ip:'192.168.2.101',status:'online',auth:310,deny:1},
+        {id:'B1-D2',name:'VISITOR ENTRY',   type:'entry', x:150,y:310, ip:'192.168.2.102',status:'online',auth:88, deny:3},
+        {id:'B1-D3',name:'SECURITY POST',   type:'both',  x:540,y:310, ip:'192.168.2.103',status:'online',auth:220,deny:0},
+      ]},
+      { id:'B2', num:2, name:'PRODUCTION A',     doors:[
+        {id:'B2-D1',name:'PROD FLOOR IN',   type:'entry', x:200,y:240, ip:'192.168.2.111',status:'online',auth:245,deny:2},
+        {id:'B2-D2',name:'PROD FLOOR OUT',  type:'exit',  x:500,y:240, ip:'192.168.2.112',status:'online',auth:230,deny:0},
+        {id:'B2-D3',name:'TOOL STORE',      type:'entry', x:350,y:120, ip:'192.168.2.113',status:'warn',  auth:67, deny:4},
+      ]},
+      { id:'B3', num:3, name:'PRODUCTION B',     doors:[
+        {id:'B3-D1',name:'LINE A GATE',     type:'both',  x:180,y:180, ip:'192.168.2.121',status:'online',auth:189,deny:1},
+        {id:'B3-D2',name:'LINE B GATE',     type:'both',  x:520,y:180, ip:'192.168.2.122',status:'online',auth:176,deny:0},
+        {id:'B3-D3',name:'SUPERVISOR',      type:'entry', x:350,y:360, ip:'192.168.2.123',status:'online',auth:41, deny:0},
+      ]},
+      { id:'B4', num:4, name:'QUALITY CTRL',     doors:[
+        {id:'B4-D1',name:'QC ENTRY',        type:'both',  x:280,y:130, ip:'192.168.2.131',status:'online',auth:155,deny:6},
+        {id:'B4-D2',name:'SAMPLE ROOM',     type:'entry', x:480,y:340, ip:'192.168.2.132',status:'online',auth:38, deny:2},
+      ]},
+      { id:'B5', num:5, name:'ENGINEERING',      doors:[
+        {id:'B5-D1',name:'ENG FLOOR',       type:'both',  x:350,y:240, ip:'192.168.2.141',status:'online',auth:124,deny:0},
+        {id:'B5-D2',name:'NETWORK ROOM',    type:'entry', x:560,y:160, ip:'192.168.2.142',status:'online',auth:19, deny:1},
+      ]},
+      { id:'B6', num:6, name:'ROOFTOP MECH',     doors:[
+        {id:'B6-D1',name:'ROOFTOP ACCESS',  type:'both',  x:350,y:240, ip:'192.168.2.151',status:'warn',  auth:14, deny:3},
+      ]},
+    ]
+  }
+};
+
+// State
+let state = { bldg:'A', floorIdx:0, selectedDoor:null };
+let floorAuth=0, floorDeny=0, floorIn=0, floorOut=0;
+
+// ── BUILD FLOOR CHIPS ──────────────────────────────────────
+function buildChips(bldgId) {
+  const bldg = BUILDINGS[bldgId];
+  const container = document.getElementById(`floors-${bldgId}`);
+  container.innerHTML='';
+  bldg.floors.forEach((fl, idx) => {
+    const chip = document.createElement('div');
+    chip.className = 'floor-chip';
+    chip.id = `chip-${bldgId}-${idx}`;
+    const warnCount = fl.doors.filter(d=>d.status==='warn').length;
+    chip.innerHTML=`
+      <div><div class="fc-num">F${fl.num}</div><div class="fc-name">${fl.name}</div></div>
+      <div class="fc-doors">
+        ${fl.doors.map(d=>`<div class="fc-dot${d.status==='warn'?' warn':''}"></div>`).join('')}
+      </div>`;
+    chip.addEventListener('click',()=>selectFloor(bldgId, idx));
+    container.appendChild(chip);
+  });
+}
+
+function selectFloor(bldgId, floorIdx) {
+  // update state
+  state.bldg = bldgId;
+  state.floorIdx = floorIdx;
+  state.selectedDoor = null;
+
+  // update chip highlights
+  ['A','B'].forEach(b=>{
+    BUILDINGS[b].floors.forEach((_,i)=>{
+      const c = document.getElementById(`chip-${b}-${i}`);
+      if(c) c.classList.toggle('selected', b===bldgId && i===floorIdx);
+    });
+  });
+
+  // update bld labels
+  document.getElementById('bldA-lbl').className = 'bld-label' + (bldgId==='A'?' active':'');
+  document.getElementById('bldB-lbl').className = 'bld-label' + (bldgId==='B'?' active':'');
+
+  // floor stats
+  const fl = BUILDINGS[bldgId].floors[floorIdx];
+  floorAuth = fl.doors.reduce((a,d)=>a+d.auth,0);
+  floorDeny = fl.doors.reduce((a,d)=>a+d.deny,0);
+  floorIn   = Math.floor(floorAuth*0.52);
+  floorOut  = Math.floor(floorAuth*0.48);
+  document.getElementById('s-auth').textContent = floorAuth;
+  document.getElementById('s-deny').textContent = floorDeny;
+  document.getElementById('s-in').textContent   = floorIn;
+  document.getElementById('s-out').textContent  = floorOut;
+
+  // breadcrumb
+  const bldg = BUILDINGS[bldgId];
+  document.getElementById('bc-bldg').textContent  = bldgId;
+  document.getElementById('bc-floor').textContent = `FLOOR ${fl.num}`;
+  document.getElementById('bc-use').textContent   = fl.name;
+
+  // render plan
+  renderPlan(bldgId, floorIdx);
+  clearDoorDetail();
+}
+
+// ── RENDER FLOOR PLAN ──────────────────────────────────────
+function renderPlan(bldgId, floorIdx) {
+  const bldg  = BUILDINGS[bldgId];
+  const fl    = bldg.floors[floorIdx];
+  const bColor = bldg.color;
+  const svg   = document.getElementById('floor-svg');
+  svg.classList.remove('fade-plan');
+  void svg.offsetWidth;
+  svg.classList.add('fade-plan');
+
+  // Room layout: generate a simple floor plan with rooms
+  const rooms = generateRooms(fl.name);
+
+  let html = `
+    <!-- GRID -->
+    <defs>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M40,0 L0,0 L0,40" fill="none" stroke="#0a1e30" stroke-width="0.5"/>
+      </pattern>
+      <filter id="glow-svg">
+        <feGaussianBlur stdDeviation="3" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <filter id="door-glow">
+        <feGaussianBlur stdDeviation="4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <marker id="arr-entry" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+        <polygon points="0,0 8,4 0,8" fill="#00ff88"/>
+      </marker>
+      <marker id="arr-exit" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+        <polygon points="8,0 0,4 8,8" fill="#ff2d55"/>
+      </marker>
+    </defs>
+
+    <!-- BACKGROUND GRID -->
+    <rect width="700" height="480" fill="#020c18"/>
+    <rect width="700" height="480" fill="url(#grid)"/>
+
+    <!-- FLOOR OUTLINE -->
+    <rect x="60" y="40" width="580" height="400" rx="3" 
+      fill="#030f1c" stroke="${bColor}" stroke-width="1.5" opacity="0.9"/>
+
+    <!-- FLOOR LABEL -->
+    <text x="350" y="26" fill="${bColor}" font-size="11" font-family="Orbitron" 
+      text-anchor="middle" letter-spacing="3" opacity="0.7">
+      BUILDING ${bldgId} · FLOOR ${fl.num} · ${fl.name}
+    </text>`;
+
+  // Rooms
+  rooms.forEach(r=>{
+    html += `
+    <rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="2"
+      fill="${r.fill}" stroke="${r.stroke}" stroke-width="1" opacity="0.85"/>
+    <text x="${r.x+r.w/2}" y="${r.y+r.h/2}" fill="${r.tc}" font-size="9"
+      font-family="Share Tech Mono" text-anchor="middle" letter-spacing="1" opacity="0.8">
+      ${r.label}
+    </text>`;
+  });
+
+  // Doors
+  fl.doors.forEach(door=>{
+    const isWarn   = door.status==='warn';
+    const ringCol  = isWarn ? '#ffb700' : bColor;
+    const pulseCol = isWarn ? '#ffb700' : '#00d4ff';
+
+    html += `<g class="door-pin" id="pin-${door.id}" onclick="selectDoor('${door.id}','${bldgId}',${floorIdx})" filter="url(#door-glow)">
+      <!-- Pulse ring -->
+      <circle cx="${door.x}" cy="${door.y}" r="10" fill="none" stroke="${pulseCol}" stroke-width="1" opacity="0.4">
+        <animate attributeName="r" values="10;22;10" dur="2.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.5;0;0.5" dur="2.5s" repeatCount="indefinite"/>
+      </circle>
+      <!-- Main ring -->
+      <circle cx="${door.x}" cy="${door.y}" r="14" fill="#020c18cc" 
+        stroke="${ringCol}" stroke-width="${isWarn?2:1.5}" class="pin-ring"/>
+      <!-- ICON -->
+      <text x="${door.x}" y="${door.y+5}" font-size="13" text-anchor="middle" 
+        style="font-family:sans-serif">📷</text>`;
+
+    // Entry/Exit arrow
+    if (door.type==='entry' || door.type==='both') {
+      html += drawArrow(door.x, door.y, 'entry', fl.num);
+    }
+    if (door.type==='exit' || door.type==='both') {
+      html += drawArrow(door.x, door.y, 'exit', fl.num);
+    }
+
+    // Door label
+    const labelY = door.y > 280 ? door.y - 24 : door.y + 30;
+    html += `
+      <rect x="${door.x-40}" y="${labelY-11}" width="80" height="14" rx="2"
+        fill="#020c18" stroke="${ringCol}" stroke-width="0.8" opacity="0.9"/>
+      <text x="${door.x}" y="${labelY}" fill="${ringCol}" font-size="8"
+        font-family="Share Tech Mono" text-anchor="middle" letter-spacing="1">${door.name}</text>
+    </g>`;
+  });
+
+  // Floor number watermark
+  html += `<text x="350" y="260" fill="${bColor}" font-size="140" font-family="Orbitron"
+    font-weight="900" text-anchor="middle" opacity="0.025" letter-spacing="-10">F${fl.num}</text>`;
+
+  svg.innerHTML = html;
+}
+
+function drawArrow(cx, cy, type, floorNum) {
+  const isEntry = type==='entry';
+  const col = isEntry ? '#00ff88' : '#ff2d55';
+  // arrow direction: entry = pointing inward (down), exit = pointing outward (up)
+  const offset = isEntry ? 28 : -28;
+  const ax = cx + (isEntry ? 22 : -22);
+  const ay = cy;
+  // small directional chevron
+  const pts = isEntry
+    ? `${ax-8},${ay-5} ${ax},${ay} ${ax-8},${ay+5}`
+    : `${ax+8},${ay-5} ${ax},${ay} ${ax+8},${ay+5}`;
+  return `<polygon points="${pts}" fill="${col}" opacity="0.85" filter="url(#glow-svg)">
+    <animate attributeName="opacity" values="0.85;0.3;0.85" dur="1.8s" repeatCount="indefinite"/>
+  </polygon>`;
+}
+
+function generateRooms(floorName) {
+  const base = [
+    {x:80, y:60,  w:160,h:160,fill:'#040f1c',stroke:'#0c2a44',tc:'#2e5c7a',label:'ZONE A'},
+    {x:260,y:60,  w:180,h:160,fill:'#061220',stroke:'#0c2a44',tc:'#2e5c7a',label:'ZONE B'},
+    {x:460,y:60,  w:160,h:160,fill:'#040f1c',stroke:'#0c2a44',tc:'#2e5c7a',label:'ZONE C'},
+    {x:80, y:240, w:260,h:180,fill:'#050e1a',stroke:'#0c2a44',tc:'#2e5c7a',label:'MAIN HALL'},
+    {x:360,y:240, w:260,h:180,fill:'#040f1c',stroke:'#0c2a44',tc:'#2e5c7a',label:'CORRIDOR'},
+    {x:80, y:360, w:580,h:70, fill:'#030c18',stroke:'#0c2a44',tc:'#1a3a5c',label:'PERIMETER WALKWAY'},
+  ];
+  return base;
+}
+
+// ── DOOR SELECTION ─────────────────────────────────────────
+function selectDoor(doorId, bldgId, floorIdx) {
+  state.selectedDoor = doorId;
+  const fl = BUILDINGS[bldgId].floors[floorIdx];
+  const door = fl.doors.find(d=>d.id===doorId);
+  if (!door) return;
+
+  // Highlight
+  document.querySelectorAll('.door-pin').forEach(p=>p.classList.remove('active'));
+  const pin = document.getElementById('pin-'+doorId);
+  if (pin) pin.classList.add('active');
+
+  // Detail card
+  const typeLabel = {entry:'ENTRY ONLY',exit:'EXIT ONLY',both:'ENTRY + EXIT'};
+  const statusCol = door.status==='online'?'var(--green)':'var(--amber)';
+  document.getElementById('door-detail').innerHTML=`
+    <div class="door-card selected">
+      <div class="dc-header">
+        <div class="dc-name">${door.name}</div>
+        <div class="dc-badge ${door.status==='online'?'badge-online':'badge-warn'}">${door.status.toUpperCase()}</div>
+      </div>
+      <div class="dc-row"><div class="dc-key">DOOR ID</div><div class="dc-val">${door.id}</div></div>
+      <div class="dc-row"><div class="dc-key">TYPE</div><div class="dc-val">${typeLabel[door.type]}</div></div>
+      <div class="dc-row"><div class="dc-key">IP</div><div class="dc-val">${door.ip}</div></div>
+      <div class="dc-row"><div class="dc-key">AUTH TODAY</div><div class="dc-val" style="color:var(--green)">${door.auth}</div></div>
+      <div class="dc-row"><div class="dc-key">DENIED</div><div class="dc-val" style="color:var(--red)">${door.deny}</div></div>
+      <div class="dc-row"><div class="dc-key">LOCATION</div><div class="dc-val">BLDG ${bldgId} · F${fl.num}</div></div>
+    </div>`;
+
+  pushEvent(`${door.name} selected — ${door.auth} auth today`, 'ok');
+}
+
+function clearDoorDetail() {
+  document.getElementById('door-detail').innerHTML=`
+    <div style="font-size:9px;color:var(--muted);text-align:center;padding:10px 0">Click a door on the floor plan</div>`;
+}
+
+// ── EVENT LOG ──────────────────────────────────────────────
+const feed = document.getElementById('event-feed');
+function pushEvent(msg, cls='ok') {
+  const t = new Date().toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className='ev';
+  const dotCls = cls==='ok'?'dot-g':cls==='err'?'dot-r':'dot-a';
+  div.innerHTML=`<div class="ev-time">${t}</div><div class="ev-dot dot ${dotCls}"></div><div class="ev-msg ${cls}">${msg}</div>`;
+  feed.insertBefore(div, feed.firstChild);
+  while(feed.children.length>20) feed.removeChild(feed.lastChild);
+}
+
+// Simulate live events
+const evPool = [
+  ['AUTH GRANTED — MAIN ENTRANCE','ok'],
+  ['AUTH GRANTED — PROD FLOOR IN','ok'],
+  ['DENIED — VISITOR ENTRY','err'],
+  ['SCAN TIMEOUT — TOOL STORE','warn'],
+  ['AUTH GRANTED — LAB ENTRANCE','ok'],
+  ['HUB LATENCY — 192.168.2.1','warn'],
+  ['AUTH GRANTED — LINE A GATE','ok'],
+  ['AUTH GRANTED — QC ENTRY','ok'],
+];
+setInterval(()=>{
+  const [msg,cls]=evPool[Math.floor(Math.random()*evPool.length)];
+  pushEvent(msg,cls);
+  // bump auth count
+  const v=document.getElementById('h-auth');
+  v.textContent=Math.floor(Math.random()*12+8);
+},4000);
+
+// ── AUTH COUNTER ───────────────────────────────────────────
+let totalAuth=1531;
+setInterval(()=>{ 
+  totalAuth+=Math.random()>0.6?1:0;
+  document.getElementById('h-auth').textContent=Math.floor(Math.random()*15+5);
+},3000);
+
+// ── INIT ───────────────────────────────────────────────────
+buildChips('A');
+buildChips('B');
+selectFloor('A', 0);
+pushEvent('System initialized — DET P6','ok');
+pushEvent('Building A: 4 floors online','ok');
+pushEvent('Building B: 6 floors online','ok');
+</script>
+</body>
+</html>
