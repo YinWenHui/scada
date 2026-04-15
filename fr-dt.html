@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FACE SCAN SCADA — DIGITAL TWIN</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600&display=swap');
+
+  :root {
+    --void: #020408;
+    --deep: #040c14;
+    --panel: #071422;
+    --border: #0a2840;
+    --cyan: #00d4ff;
+    --cyan2: #00ffea;
+    --orange: #ff6b1a;
+    --amber: #ffaa00;
+    --green: #00ff88;
+    --red: #ff2d55;
+    --dim: #1a3a5c;
+    --text: #a8d4f0;
+    --muted: #3a6080;
+    --glow-cyan: 0 0 8px #00d4ff88, 0 0 20px #00d4ff33;
+    --glow-orange: 0 0 8px #ff6b1a88, 0 0 20px #ff6b1a33;
+    --glow-green: 0 0 8px #00ff8888, 0 0 20px #00ff8833;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--void);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* STARFIELD */
+  #starfield {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    overflow: hidden;
+  }
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: white;
+    animation: twinkle var(--d) ease-in-out infinite;
+  }
+  @keyframes twinkle {
+    0%,100% { opacity: var(--a); transform: scale(1); }
+    50% { opacity: 0.1; transform: scale(0.6); }
+  }
+
+  /* SCANLINES overlay */
+  body::after {
+    content: '';
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,212,255,0.015) 2px, rgba(0,212,255,0.015) 4px
+    );
+  }
+
+  /* MAIN WRAPPER */
+  .app { position: relative; z-index: 2; padding: 16px; max-width: 1400px; margin: 0 auto; }
+
+  /* HEADER */
+  header {
+    border: 1px solid var(--cyan);
+    background: linear-gradient(90deg, #020c18, #041a2e, #020c18);
+    padding: 16px 24px;
+    margin-bottom: 16px;
+    position: relative;
+    box-shadow: var(--glow-cyan), inset 0 0 30px rgba(0,212,255,0.04);
+    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+  }
+  header::before {
+    content: 'MISSION CONTROL — BIOMETRIC NETWORK';
+    position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; color: var(--muted); letter-spacing: 6px;
+  }
+  .header-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 22px;
+    color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+    letter-spacing: 2px;
+  }
+  .logo span { color: var(--orange); text-shadow: var(--glow-orange); }
+  .mission-badge {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    padding: 4px 12px;
+    animation: pulse-badge 2s ease-in-out infinite;
+  }
+  @keyframes pulse-badge {
+    0%,100% { opacity:1; box-shadow: 0 0 6px #ffaa0066; }
+    50% { opacity:0.6; box-shadow: none; }
+  }
+  .header-stats { display: flex; gap: 20px; }
+  .hstat { text-align: center; }
+  .hstat-val { font-family: 'Orbitron', monospace; font-size: 18px; color: var(--green); text-shadow: var(--glow-green); }
+  .hstat-lbl { font-size: 9px; color: var(--muted); letter-spacing: 2px; }
+
+  /* GRID LAYOUT */
+  .grid-main { display: grid; grid-template-columns: 280px 1fr 280px; gap: 12px; margin-bottom: 12px; }
+  .grid-osi { display: grid; grid-template-columns: 1fr; gap: 0; }
+  .grid-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  /* PANEL BASE */
+  .panel {
+    background: linear-gradient(135deg, var(--deep), var(--panel));
+    border: 1px solid var(--border);
+    padding: 14px;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+  .panel:hover { border-color: var(--cyan); }
+  .panel-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    color: var(--cyan);
+    letter-spacing: 3px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--dim);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title::before { content: '▶'; color: var(--orange); font-size: 8px; }
+
+  /* STATUS DOTS */
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .dot-green { background: var(--green); box-shadow: var(--glow-green); animation: blink 1.8s ease-in-out infinite; }
+  .dot-amber { background: var(--amber); box-shadow: 0 0 6px #ffaa0088; }
+  .dot-red { background: var(--red); box-shadow: 0 0 6px #ff2d5588; animation: blink 0.6s ease-in-out infinite; }
+  .dot-cyan { background: var(--cyan); box-shadow: var(--glow-cyan); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* OSI LAYER DIAGRAM */
+  .osi-wrapper {
+    grid-column: 1 / -1;
+    border: 1px solid var(--border);
+    background: linear-gradient(135deg, var(--deep), var(--panel));
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .osi-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    letter-spacing: 4px;
+    margin-bottom: 16px;
+    text-align: center;
+    text-shadow: var(--glow-cyan);
+  }
+  .osi-layers { display: flex; gap: 0; position: relative; }
+  .osi-side {
+    display: flex; flex-direction: column; gap: 0;
+    min-width: 120px;
+  }
+  .osi-center { flex: 1; position: relative; }
+  .osi-layer-label {
+    height: 54px; display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 12px;
+    font-size: 9px; letter-spacing: 2px;
+    color: var(--muted);
+    border-right: 2px solid var(--dim);
+    position: relative;
+  }
+  .osi-layer-label.active { color: var(--cyan); border-right-color: var(--cyan); }
+  .osi-layer-label .lnum {
+    position: absolute; right: -10px;
+    background: var(--void); border: 1px solid var(--dim);
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; color: var(--muted);
+  }
+  .osi-layer-label.active .lnum { border-color: var(--cyan); color: var(--cyan); }
+
+  /* SYSTEM DIAGRAM CENTER */
+  .sys-diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding: 0 20px;
+    position: relative;
+  }
+
+  .sys-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    width: 100%;
+    position: relative;
+    height: 54px;
+  }
+
+  /* NODE CARDS */
+  .node {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: var(--panel);
+    border: 1px solid var(--dim);
+    padding: 6px 10px;
+    min-width: 90px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    z-index: 2;
+  }
+  .node:hover { border-color: var(--cyan); box-shadow: var(--glow-cyan); transform: scale(1.05); }
+  .node.active { border-color: var(--green); box-shadow: var(--glow-green); }
+  .node.warn { border-color: var(--amber); }
+  .node-icon { font-size: 18px; line-height: 1; }
+  .node-label { font-size: 8px; letter-spacing: 1px; color: var(--text); margin-top: 2px; text-align: center; }
+  .node-status { font-size: 7px; color: var(--muted); }
+
+  /* CONNECTOR LINES */
+  .conn-h {
+    height: 2px; flex: 1; max-width: 60px;
+    background: linear-gradient(90deg, var(--dim), var(--cyan), var(--dim));
+    position: relative;
+    z-index: 1;
+  }
+  .conn-h::after {
+    content: '';
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 4px; height: 4px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: var(--glow-cyan);
+    animation: travel 2s ease-in-out infinite;
+  }
+  @keyframes travel {
+    0% { left: 5%; opacity:0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { left: 95%; opacity: 0; }
+  }
+
+  .conn-v {
+    width: 2px; height: 8px;
+    background: linear-gradient(180deg, var(--dim), var(--cyan));
+    margin: 0 auto;
+  }
+
+  /* DATA PACKET ANIMATION along vertical */
+  .flow-line {
+    position: absolute; left: 50%;
+    width: 2px;
+    background: linear-gradient(180deg, transparent, var(--cyan)44, transparent);
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .flow-packet {
+    width: 4px; height: 12px;
+    background: var(--cyan);
+    box-shadow: var(--glow-cyan);
+    border-radius: 2px;
+    position: absolute; left: -1px;
+    animation: flow-down var(--spd) linear infinite;
+    opacity: 0;
+  }
+  @keyframes flow-down {
+    0% { top: 0; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  /* METER BARS */
+  .meter-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .meter-lbl { font-size: 9px; color: var(--muted); width: 80px; flex-shrink: 0; }
+  .meter-bar { flex: 1; height: 6px; background: var(--dim); border-radius: 3px; overflow: hidden; position: relative; }
+  .meter-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--cyan), var(--cyan2));
+    box-shadow: var(--glow-cyan);
+    transition: width 1s ease;
+    animation: meter-pulse 3s ease-in-out infinite;
+  }
+  .meter-fill.warn { background: linear-gradient(90deg, var(--amber), var(--orange)); box-shadow: var(--glow-orange); }
+  .meter-fill.crit { background: linear-gradient(90deg, var(--red), var(--orange)); }
+  @keyframes meter-pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+  .meter-val { font-size: 9px; color: var(--cyan); width: 36px; text-align: right; flex-shrink: 0; }
+
+  /* EVENT LOG */
+  .log-entry {
+    display: flex; gap: 8px; align-items: flex-start;
+    padding: 4px 0; border-bottom: 1px solid #0a1824;
+    font-size: 9px; line-height: 1.4;
+  }
+  .log-time { color: var(--muted); flex-shrink: 0; }
+  .log-msg { color: var(--text); }
+  .log-msg.ok { color: var(--green); }
+  .log-msg.warn { color: var(--amber); }
+  .log-msg.err { color: var(--red); }
+
+  /* FACE SCAN WIDGET */
+  .face-scan-container {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 10px 0;
+  }
+  .face-ring {
+    width: 100px; height: 100px; border-radius: 50%;
+    border: 2px solid var(--cyan);
+    box-shadow: var(--glow-cyan), inset 0 0 20px rgba(0,212,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    animation: ring-rotate 8s linear infinite;
+  }
+  @keyframes ring-rotate {
+    0% { box-shadow: 0 0 8px #00d4ff88, 0 0 20px #00d4ff33, inset 0 0 20px rgba(0,212,255,0.1); }
+    25% { box-shadow: 0 0 20px #00d4ff, 0 0 40px #00d4ff44, inset 0 0 20px rgba(0,212,255,0.2); }
+    50% { box-shadow: 0 0 8px #00d4ff88, 0 0 20px #00d4ff33, inset 0 0 20px rgba(0,212,255,0.1); }
+    75% { box-shadow: 0 0 20px #00d4ff, 0 0 40px #00d4ff44, inset 0 0 20px rgba(0,212,255,0.2); }
+  }
+  .face-ring::before, .face-ring::after {
+    content: ''; position: absolute;
+    border-radius: 50%;
+    border: 1px dashed var(--dim);
+  }
+  .face-ring::before { width: 120px; height: 120px; animation: spin 12s linear infinite; }
+  .face-ring::after { width: 140px; height: 140px; animation: spin 20s linear infinite reverse; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .face-icon { font-size: 40px; filter: drop-shadow(0 0 8px var(--cyan)); }
+  .scan-line {
+    position: absolute; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    animation: scan 2s ease-in-out infinite;
+    top: 10px;
+  }
+  @keyframes scan { 0%{top:10%} 50%{top:90%} 100%{top:10%} }
+  .scan-label { font-size: 9px; color: var(--cyan); margin-top: 16px; letter-spacing: 3px; animation: blink 1s infinite; }
+  .scan-id { font-family: 'Orbitron', monospace; font-size: 14px; color: var(--green); margin-top: 6px; text-shadow: var(--glow-green); }
+
+  /* IP/MAC TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+  .data-table th { color: var(--muted); letter-spacing: 2px; padding: 4px 6px; border-bottom: 1px solid var(--dim); text-align: left; }
+  .data-table td { padding: 4px 6px; border-bottom: 1px solid #0a1824; color: var(--text); }
+  .data-table tr:hover td { background: rgba(0,212,255,0.03); }
+
+  /* TOPOLOGY MAP */
+  .topo-svg { width: 100%; height: 200px; }
+
+  /* BOTTOM PANEL */
+  .grid-bottom { margin-top: 12px; }
+
+  /* UPS GAUGE */
+  .gauge-wrap { display: flex; justify-content: center; padding: 8px 0; }
+  .gauge {
+    width: 110px; height: 60px; position: relative;
+    border-bottom: none;
+  }
+  .gauge svg { width: 100%; height: 100%; }
+
+  /* ALARM LIST */
+  .alarm-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; border-bottom: 1px solid #0a1824;
+    font-size: 9px;
+  }
+  .alarm-badge {
+    padding: 1px 6px; border-radius: 2px; font-size: 8px; letter-spacing: 1px; flex-shrink: 0;
+  }
+  .badge-ok { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid var(--green); }
+  .badge-warn { background: rgba(255,170,0,0.15); color: var(--amber); border: 1px solid var(--amber); }
+  .badge-crit { background: rgba(255,45,85,0.15); color: var(--red); border: 1px solid var(--red); }
+
+  /* TICKER */
+  .ticker {
+    background: #020c14;
+    border: 1px solid var(--dim);
+    border-top: 1px solid var(--cyan);
+    padding: 6px 16px;
+    overflow: hidden; white-space: nowrap;
+    position: relative;
+    margin-top: 12px;
+  }
+  .ticker-inner {
+    display: inline-block;
+    animation: ticker-scroll 30s linear infinite;
+    font-size: 9px; letter-spacing: 2px; color: var(--muted);
+  }
+  @keyframes ticker-scroll { 0%{transform:translateX(100vw)} 100%{transform:translateX(-200%)} }
+  .ticker span { color: var(--cyan); margin: 0 20px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .grid-main { grid-template-columns: 1fr; }
+    .grid-bottom { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    .grid-bottom { grid-template-columns: 1fr; }
+    .logo { font-size: 16px; }
+  }
+
+  /* NODE TOOLTIP */
+  .tooltip {
+    position: fixed; z-index: 999;
+    background: #041a2e; border: 1px solid var(--cyan);
+    padding: 8px 12px; font-size: 9px; color: var(--text);
+    pointer-events: none; opacity: 0; transition: opacity 0.15s;
+    max-width: 200px; line-height: 1.6;
+    box-shadow: var(--glow-cyan);
+  }
+  .tooltip.show { opacity: 1; }
+
+  /* CLOCK */
+  .clock { font-family: 'Orbitron', monospace; font-size: 11px; color: var(--amber); letter-spacing: 2px; }
+</style>
+</head>
+<body>
+
+<div id="starfield"></div>
+<div class="tooltip" id="tooltip"></div>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-inner">
+      <div>
+        <div class="logo">FACE<span>SCAN</span> SCADA</div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:3px;margin-top:3px">DIGITAL TWIN v2.1 — DET P6</div>
+      </div>
+      <div class="mission-badge">● MISSION ACTIVE</div>
+      <div class="header-stats">
+        <div class="hstat"><div class="hstat-val" id="auth-count">247</div><div class="hstat-lbl">AUTH/HR</div></div>
+        <div class="hstat"><div class="hstat-val" style="color:var(--cyan)" id="online-nodes">12</div><div class="hstat-lbl">NODES ONLINE</div></div>
+        <div class="hstat"><div class="hstat-val" style="color:var(--amber)" id="uptime-val">99.97%</div><div class="hstat-lbl">UPTIME</div></div>
+      </div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- OSI LAYER SYSTEM DIAGRAM -->
+  <div class="osi-wrapper">
+    <div class="osi-title">◈ OSI MODEL — NETWORK TOPOLOGY / SYSTEM ARCHITECTURE ◈</div>
+    <div class="osi-layers">
+
+      <!-- OSI LABELS LEFT -->
+      <div class="osi-side" style="min-width:130px">
+        <div class="osi-layer-label" style="height:60px"><div class="lnum">7</div>APPLICATION</div>
+        <div class="osi-layer-label" style="height:60px"><div class="lnum">6</div>PRESENTATION</div>
+        <div class="osi-layer-label active" style="height:60px"><div class="lnum">5</div>SESSION</div>
+        <div class="osi-layer-label" style="height:60px"><div class="lnum">4</div>TRANSPORT</div>
+        <div class="osi-layer-label active" style="height:60px"><div class="lnum">3</div>NETWORK</div>
+        <div class="osi-layer-label active" style="height:60px"><div class="lnum">2</div>DATA LINK</div>
+        <div class="osi-layer-label active" style="height:60px"><div class="lnum">1</div>PHYSICAL</div>
+      </div>
+
+      <!-- CENTER DIAGRAM -->
+      <div class="sys-diagram" style="flex:1; padding: 0 30px;">
+
+        <!-- L7 - SCADA Server / Apps -->
+        <div class="sys-row">
+          <div class="node active" data-tip="SCADA Server&#10;VTScada v12&#10;IP: 192.168.1.10&#10;Port: 8080&#10;Status: ONLINE" onclick="selectNode(this,'SCADA Server')">
+            <div class="node-icon">🖥️</div>
+            <div class="node-label">SCADA SERVER</div>
+            <div class="node-status"><span class="dot dot-green"></span> VTScada</div>
+          </div>
+          <div class="conn-h"></div>
+          <div class="node active" data-tip="Face Scan Server&#10;Biometric Engine v3&#10;IP: 192.168.1.20&#10;99.2% accuracy&#10;Status: SCANNING" onclick="selectNode(this,'Face Scan Server')">
+            <div class="node-icon">🔍</div>
+            <div class="node-label">FACE SCAN SRV</div>
+            <div class="node-status"><span class="dot dot-green"></span> ACTIVE</div>
+          </div>
+          <div class="conn-h"></div>
+          <div class="node" data-tip="Power BI Dashboard&#10;Data refresh: 5min&#10;SharePoint linked&#10;Status: STREAMING" onclick="selectNode(this,'Power BI')">
+            <div class="node-icon">📊</div>
+            <div class="node-label">POWER BI</div>
+            <div class="node-status"><span class="dot dot-cyan"></span> STREAM</div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-around;width:100%">
+          <div class="conn-v" style="height:10px"></div>
+          <div class="conn-v" style="height:10px"></div>
+          <div class="conn-v" style="height:10px"></div>
+        </div>
+
+        <!-- L5/L4 - Switch Core -->
+        <div class="sys-row">
+          <div style="flex:1;display:flex;align-items:center;justify-content:center; gap: 0">
+            <div class="conn-h" style="max-width:80px"></div>
+            <div class="node active" data-tip="Core Switch&#10;Cisco C2960 24-port&#10;VLAN: 10,20,30&#10;Uplink: 1Gbps&#10;Status: ONLINE" onclick="selectNode(this,'Core Switch')">
+              <div class="node-icon">🔀</div>
+              <div class="node-label">CORE SWITCH</div>
+              <div class="node-status"><span class="dot dot-green"></span> 24-PORT</div>
+            </div>
+            <div class="conn-h" style="max-width:80px"></div>
+            <div class="node" data-tip="HUB / Distribution&#10;8-port unmanaged&#10;Zone: B2 Floor&#10;Connected: 6/8" onclick="selectNode(this,'Hub')">
+              <div class="node-icon">🔁</div>
+              <div class="node-label">HUB / DIST</div>
+              <div class="node-status"><span class="dot dot-amber"></span> 6/8</div>
+            </div>
+            <div class="conn-h" style="max-width:80px"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:center;gap:120px;width:100%">
+          <div class="conn-v" style="height:10px"></div>
+          <div class="conn-v" style="height:10px"></div>
+        </div>
+
+        <!-- L2/L1 - Physical -->
+        <div class="sys-row" style="gap:4px;justify-content:center">
+          <div class="node" data-tip="UPS — APC 3000VA&#10;Battery: 87%&#10;Load: 34%&#10;Runtime: ~28min&#10;Status: ON MAINS" onclick="selectNode(this,'UPS')">
+            <div class="node-icon">🔋</div>
+            <div class="node-label">UPS</div>
+            <div class="node-status"><span class="dot dot-green"></span> 87% BATT</div>
+          </div>
+          <div class="conn-h"></div>
+          <div class="node active" data-tip="LAN Wiring CAT6A&#10;Run length: 85m&#10;Panel: PP-B2-01&#10;Termination: 568B&#10;Status: CERTIFIED" onclick="selectNode(this,'LAN Cable')">
+            <div class="node-icon">🔌</div>
+            <div class="node-label">LAN CAT6A</div>
+            <div class="node-status"><span class="dot dot-green"></span> 85m RUN</div>
+          </div>
+          <div class="conn-h"></div>
+          <div class="node" data-tip="Face Scan Terminal&#10;Zone: Main Entrance&#10;Resolution: 2MP IR&#10;Liveness: ON&#10;Status: READY" onclick="selectNode(this,'Terminal')">
+            <div class="node-icon">📷</div>
+            <div class="node-label">SCAN TERM.</div>
+            <div class="node-status"><span class="dot dot-green"></span> READY</div>
+          </div>
+          <div class="conn-h"></div>
+          <div class="node" data-tip="Face Scan Terminal&#10;Zone: B2 Exit&#10;Resolution: 2MP IR&#10;Liveness: ON&#10;Status: READY" onclick="selectNode(this,'Terminal B2')">
+            <div class="node-icon">📷</div>
+            <div class="node-label">SCAN TERM.</div>
+            <div class="node-status"><span class="dot dot-green"></span> ZONE B2</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- OSI LABELS RIGHT - data flow labels -->
+      <div class="osi-side" style="min-width:140px; border-left: none;">
+        <div style="height:60px; display:flex;align-items:center;padding-left:14px;border-left:2px solid var(--dim);font-size:8px;color:var(--muted);letter-spacing:1px;">SCADA / Power BI / REST</div>
+        <div style="height:60px; display:flex;align-items:center;padding-left:14px;border-left:2px solid var(--dim);font-size:8px;color:var(--muted);letter-spacing:1px;">TLS / JSON / BiomEncode</div>
+        <div style="height:60px; display:flex;align-items:center;padding-left:14px;border-left:2px solid var(--cyan);font-size:8px;color:var(--cyan);letter-spacing:1px;">TCP Session / Auth Token</div>
+        <div style="height:60px; display:flex;align-items:center;padding-left:14px;border-left:2px solid var(--dim);font-size:8px;color:var(--muted);letter-spacing:1px;">TCP/UDP · Port 8080/502</div>
+        <div style="height:60px; display:flex;align-items:center;padding-left:14px;border-left:2px solid var(--cyan);font-size:8px;color:var(--cyan);letter-spacing:1px;">IP / VLAN / Routing</div>
+        <div style="height:60px; display:flex;align-items:center;padding-left:14px;border-left:2px solid var(--cyan);font-size:8px;color:var(--cyan);letter-spacing:1px;">Ethernet / MAC / VLAN tag</div>
+        <div style="height:60px; display:flex;align-items:center;padding-left:14px;border-left:2px solid var(--cyan);font-size:8px;color:var(--cyan);letter-spacing:1px;">CAT6A · 1Gbps · UPS feed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN 3-COL -->
+  <div class="grid-main">
+
+    <!-- LEFT: FACE SCAN STATUS -->
+    <div class="panel">
+      <div class="panel-title">BIOMETRIC ENGINE</div>
+      <div class="face-scan-container">
+        <div class="face-ring">
+          <div class="face-icon">🧬</div>
+          <div class="scan-line"></div>
+        </div>
+        <div class="scan-label" id="scan-state">SCANNING…</div>
+        <div class="scan-id" id="scan-id">EMP-00247</div>
+      </div>
+      <div style="margin-top:14px">
+        <div class="meter-row">
+          <div class="meter-lbl">MATCH CONF</div>
+          <div class="meter-bar"><div class="meter-fill" style="width:94%" id="conf-bar"></div></div>
+          <div class="meter-val" id="conf-val">94%</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-lbl">LIVENESS</div>
+          <div class="meter-bar"><div class="meter-fill" style="width:99%"></div></div>
+          <div class="meter-val">99%</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-lbl">QUEUE DEPTH</div>
+          <div class="meter-bar"><div class="meter-fill warn" style="width:38%" id="queue-bar"></div></div>
+          <div class="meter-val" id="queue-val">3</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-lbl">PROC TIME</div>
+          <div class="meter-bar"><div class="meter-fill" style="width:72%"></div></div>
+          <div class="meter-val">320ms</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div style="background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);padding:6px;text-align:center">
+          <div style="font-family:'Orbitron',monospace;font-size:16px;color:var(--green)" id="auth-today">1,284</div>
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">AUTH TODAY</div>
+        </div>
+        <div style="background:rgba(255,45,85,0.06);border:1px solid rgba(255,45,85,0.2);padding:6px;text-align:center">
+          <div style="font-family:'Orbitron',monospace;font-size:16px;color:var(--red)" id="deny-today">3</div>
+          <div style="font-size:8px;color:var(--muted);letter-spacing:1px">DENIED</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: NETWORK METRICS -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel" style="flex:1">
+        <div class="panel-title">NETWORK TELEMETRY — LIVE</div>
+        <div class="meter-row">
+          <div class="meter-lbl">SW UPLINK TX</div>
+          <div class="meter-bar"><div class="meter-fill" style="width:42%" id="tx-bar"></div></div>
+          <div class="meter-val" id="tx-val">420Mbps</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-lbl">SW UPLINK RX</div>
+          <div class="meter-bar"><div class="meter-fill" style="width:28%"></div></div>
+          <div class="meter-val">280Mbps</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-lbl">SWITCH CPU</div>
+          <div class="meter-bar"><div class="meter-fill warn" style="width:61%" id="sw-cpu-bar"></div></div>
+          <div class="meter-val" id="sw-cpu-val">61%</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-lbl">SCAN SRV CPU</div>
+          <div class="meter-bar"><div class="meter-fill" style="width:47%"></div></div>
+          <div class="meter-val">47%</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-lbl">SCAN SRV RAM</div>
+          <div class="meter-bar"><div class="meter-fill" style="width:68%"></div></div>
+          <div class="meter-val">68%</div>
+        </div>
+        <div class="meter-row">
+          <div class="meter-lbl">UPS LOAD</div>
+          <div class="meter-bar"><div class="meter-fill warn" style="width:34%"></div></div>
+          <div class="meter-val">34%</div>
+        </div>
+
+        <!-- MINI TOPOLOGY SVG -->
+        <svg class="topo-svg" viewBox="0 0 600 180" style="margin-top:12px">
+          <defs>
+            <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+              <path d="M0,0 L6,3 L0,6 Z" fill="#00d4ff44"/>
+            </marker>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <!-- GRID LINES -->
+          <line x1="0" y1="60" x2="600" y2="60" stroke="#0a2840" stroke-width="1"/>
+          <line x1="0" y1="120" x2="600" y2="120" stroke="#0a2840" stroke-width="1"/>
+          <text x="4" y="55" fill="#1a3a5c" font-size="8" font-family="Share Tech Mono">APPLICATION</text>
+          <text x="4" y="115" fill="#1a3a5c" font-size="8" font-family="Share Tech Mono">NETWORK/DATA</text>
+          <text x="4" y="175" fill="#1a3a5c" font-size="8" font-family="Share Tech Mono">PHYSICAL</text>
+
+          <!-- CONNECTIONS -->
+          <line x1="120" y1="40" x2="300" y2="40" stroke="#00d4ff33" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+          <line x1="300" y1="40" x2="480" y2="40" stroke="#00d4ff33" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+          <line x1="120" y1="40" x2="120" y2="100" stroke="#00d4ff22" stroke-width="1"/>
+          <line x1="300" y1="40" x2="300" y2="100" stroke="#00d4ff22" stroke-width="1"/>
+          <line x1="300" y1="100" x2="180" y2="155" stroke="#00d4ff22" stroke-width="1"/>
+          <line x1="300" y1="100" x2="420" y2="155" stroke="#00d4ff22" stroke-width="1"/>
+          <line x1="180" y1="155" x2="80" y2="155" stroke="#ff6b1a22" stroke-width="1"/>
+
+          <!-- NODES -->
+          <!-- SCADA Server -->
+          <rect x="70" y="22" width="100" height="32" rx="3" fill="#041a2e" stroke="#00d4ff" stroke-width="1" filter="url(#glow)"/>
+          <text x="120" y="36" fill="#00d4ff" font-size="8" font-family="Share Tech Mono" text-anchor="middle">SCADA SERVER</text>
+          <text x="120" y="48" fill="#00ff88" font-size="7" font-family="Share Tech Mono" text-anchor="middle">192.168.1.10</text>
+          <!-- Face Scan Server -->
+          <rect x="250" y="22" width="100" height="32" rx="3" fill="#041a2e" stroke="#00ff88" stroke-width="1" filter="url(#glow)"/>
+          <text x="300" y="36" fill="#00ff88" font-size="8" font-family="Share Tech Mono" text-anchor="middle">FACE SCAN SRV</text>
+          <text x="300" y="48" fill="#00d4ff" font-size="7" font-family="Share Tech Mono" text-anchor="middle">192.168.1.20</text>
+          <!-- Power BI -->
+          <rect x="430" y="22" width="100" height="32" rx="3" fill="#041a2e" stroke="#00d4ff44" stroke-width="1"/>
+          <text x="480" y="36" fill="#a8d4f0" font-size="8" font-family="Share Tech Mono" text-anchor="middle">POWER BI</text>
+          <text x="480" y="48" fill="#3a6080" font-size="7" font-family="Share Tech Mono" text-anchor="middle">CLOUD / 443</text>
+          <!-- Core Switch -->
+          <rect x="70" y="82" width="100" height="32" rx="3" fill="#041a2e" stroke="#00d4ff" stroke-width="1" filter="url(#glow)"/>
+          <text x="120" y="96" fill="#00d4ff" font-size="8" font-family="Share Tech Mono" text-anchor="middle">CORE SWITCH</text>
+          <text x="120" y="108" fill="#3a6080" font-size="7" font-family="Share Tech Mono" text-anchor="middle">C2960 VLAN10/20</text>
+          <!-- Hub -->
+          <rect x="250" y="82" width="100" height="32" rx="3" fill="#041a2e" stroke="#ffaa0088" stroke-width="1"/>
+          <text x="300" y="96" fill="#ffaa00" font-size="8" font-family="Share Tech Mono" text-anchor="middle">HUB 8-PORT</text>
+          <text x="300" y="108" fill="#3a6080" font-size="7" font-family="Share Tech Mono" text-anchor="middle">Zone B2</text>
+          <!-- UPS -->
+          <rect x="30" y="138" width="100" height="30" rx="3" fill="#041a2e" stroke="#ffaa0066" stroke-width="1"/>
+          <text x="80" y="152" fill="#ffaa00" font-size="8" font-family="Share Tech Mono" text-anchor="middle">UPS 3000VA</text>
+          <text x="80" y="163" fill="#3a6080" font-size="7" font-family="Share Tech Mono" text-anchor="middle">87% BATT</text>
+          <!-- Terminal 1 -->
+          <rect x="140" y="138" width="80" height="30" rx="3" fill="#041a2e" stroke="#00d4ff44" stroke-width="1"/>
+          <text x="180" y="153" fill="#a8d4f0" font-size="8" font-family="Share Tech Mono" text-anchor="middle">TERM.01</text>
+          <text x="180" y="163" fill="#3a6080" font-size="7" font-family="Share Tech Mono" text-anchor="middle">ENTRANCE</text>
+          <!-- Terminal 2 -->
+          <rect x="380" y="138" width="80" height="30" rx="3" fill="#041a2e" stroke="#00d4ff44" stroke-width="1"/>
+          <text x="420" y="153" fill="#a8d4f0" font-size="8" font-family="Share Tech Mono" text-anchor="middle">TERM.02</text>
+          <text x="420" y="163" fill="#3a6080" font-size="7" font-family="Share Tech Mono" text-anchor="middle">ZONE B2</text>
+
+          <!-- PACKET ANIMATION -->
+          <circle r="3" fill="#00d4ff" filter="url(#glow)">
+            <animateMotion dur="3s" repeatCount="indefinite" path="M120,40 L300,40 L300,100 L180,155"/>
+          </circle>
+          <circle r="2" fill="#00ff88" filter="url(#glow)">
+            <animateMotion dur="4s" repeatCount="indefinite" begin="1s" path="M300,40 L120,40 L120,100"/>
+          </circle>
+        </svg>
+      </div>
+    </div>
+
+    <!-- RIGHT: DEVICE TABLE + ALARMS -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel">
+        <div class="panel-title">DEVICE REGISTRY</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>NODE</th><th>IP</th><th>ST</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>SCADA-SRV</td><td>192.168.1.10</td><td><span class="dot dot-green"></span></td></tr>
+            <tr><td>FACE-SRV</td><td>192.168.1.20</td><td><span class="dot dot-green"></span></td></tr>
+            <tr><td>SW-CORE</td><td>192.168.1.1</td><td><span class="dot dot-green"></span></td></tr>
+            <tr><td>HUB-B2</td><td>192.168.2.1</td><td><span class="dot dot-amber"></span></td></tr>
+            <tr><td>UPS-01</td><td>192.168.1.30</td><td><span class="dot dot-green"></span></td></tr>
+            <tr><td>TERM-01</td><td>192.168.2.10</td><td><span class="dot dot-green"></span></td></tr>
+            <tr><td>TERM-02</td><td>192.168.2.11</td><td><span class="dot dot-green"></span></td></tr>
+            <tr><td>PBI-GW</td><td>10.0.0.5</td><td><span class="dot dot-cyan"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">ACTIVE ALARMS</div>
+        <div class="alarm-item"><span class="alarm-badge badge-warn">WARN</span><span style="font-size:9px">Hub B2 port util >75%</span></div>
+        <div class="alarm-item"><span class="alarm-badge badge-ok">OK</span><span style="font-size:9px">UPS battery nominal</span></div>
+        <div class="alarm-item"><span class="alarm-badge badge-ok">OK</span><span style="font-size:9px">LAN CAT6A cert pass</span></div>
+        <div class="alarm-item"><span class="alarm-badge badge-ok">OK</span><span style="font-size:9px">Face match rate >90%</span></div>
+        <div class="alarm-item" id="alarm-scada"><span class="alarm-badge badge-ok">OK</span><span style="font-size:9px">SCADA comm stable</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM 3 PANELS -->
+  <div class="grid-bottom">
+
+    <!-- EVENT LOG -->
+    <div class="panel">
+      <div class="panel-title">EVENT LOG — LIVE</div>
+      <div id="log-feed">
+        <div class="log-entry"><div class="log-time">08:14:22</div><div class="log-msg ok">AUTH GRANTED — EMP-00247</div></div>
+        <div class="log-entry"><div class="log-time">08:14:18</div><div class="log-msg ok">AUTH GRANTED — EMP-00183</div></div>
+        <div class="log-entry"><div class="log-time">08:13:55</div><div class="log-msg warn">HUB B2 — port 6 flap</div></div>
+        <div class="log-entry"><div class="log-time">08:13:30</div><div class="log-msg ok">AUTH GRANTED — EMP-00091</div></div>
+        <div class="log-entry"><div class="log-time">08:12:44</div><div class="log-msg err">DENIED — UNKNOWN FACE</div></div>
+        <div class="log-entry"><div class="log-time">08:12:10</div><div class="log-msg ok">SCADA POLL — 200ms</div></div>
+        <div class="log-entry"><div class="log-time">08:11:55</div><div class="log-msg ok">UPS — MAINS RESTORED</div></div>
+      </div>
+    </div>
+
+    <!-- UPS / POWER -->
+    <div class="panel">
+      <div class="panel-title">POWER SUBSYSTEM</div>
+      <div style="text-align:center;padding:8px 0">
+        <svg width="180" height="100" viewBox="0 0 180 100">
+          <defs>
+            <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#00d4ff"/>
+              <stop offset="100%" style="stop-color:#00ff88"/>
+            </linearGradient>
+          </defs>
+          <!-- Background arc -->
+          <path d="M20,90 A70,70 0 0,1 160,90" fill="none" stroke="#0a2840" stroke-width="12" stroke-linecap="round"/>
+          <!-- Battery arc (87%) -->
+          <path d="M20,90 A70,70 0 0,1 160,90" fill="none" stroke="url(#arcGrad)" stroke-width="12" stroke-linecap="round"
+            stroke-dasharray="220" stroke-dashoffset="29" filter="url(#glow)"/>
+          <text x="90" y="72" fill="#00ff88" font-size="22" font-family="Orbitron" font-weight="700" text-anchor="middle">87%</text>
+          <text x="90" y="88" fill="#3a6080" font-size="9" font-family="Share Tech Mono" text-anchor="middle">UPS BATTERY</text>
+          <text x="22" y="100" fill="#3a6080" font-size="8" font-family="Share Tech Mono">0%</text>
+          <text x="148" y="100" fill="#3a6080" font-size="8" font-family="Share Tech Mono">100%</text>
+        </svg>
+      </div>
+      <div class="meter-row" style="margin-top:4px">
+        <div class="meter-lbl">INPUT V</div>
+        <div class="meter-bar"><div class="meter-fill" style="width:96%"></div></div>
+        <div class="meter-val">220V</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">LOAD</div>
+        <div class="meter-bar"><div class="meter-fill warn" style="width:34%"></div></div>
+        <div class="meter-val">1020W</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">RUNTIME</div>
+        <div class="meter-bar"><div class="meter-fill" style="width:80%"></div></div>
+        <div class="meter-val">28min</div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;justify-content:center">
+        <div style="text-align:center;border:1px solid var(--dim);padding:4px 10px">
+          <div style="font-family:'Orbitron',monospace;font-size:12px;color:var(--green)">ON MAINS</div>
+          <div style="font-size:8px;color:var(--muted)">SOURCE</div>
+        </div>
+        <div style="text-align:center;border:1px solid var(--dim);padding:4px 10px">
+          <div style="font-family:'Orbitron',monospace;font-size:12px;color:var(--amber)">WARN</div>
+          <div style="font-size:8px;color:var(--muted)">LOAD>30%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCADA TELEMETRY -->
+    <div class="panel">
+      <div class="panel-title">SCADA TELEMETRY</div>
+      <div class="meter-row">
+        <div class="meter-lbl">POLL RATE</div>
+        <div class="meter-bar"><div class="meter-fill" style="width:88%"></div></div>
+        <div class="meter-val">200ms</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">TAG COUNT</div>
+        <div class="meter-bar"><div class="meter-fill" style="width:55%"></div></div>
+        <div class="meter-val">1,120</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">DB WRITE/S</div>
+        <div class="meter-bar"><div class="meter-fill" style="width:40%"></div></div>
+        <div class="meter-val">84/s</div>
+      </div>
+      <div class="meter-row">
+        <div class="meter-lbl">ALARM QUEUE</div>
+        <div class="meter-bar"><div class="meter-fill" style="width:12%"></div></div>
+        <div class="meter-val">2</div>
+      </div>
+      <div style="margin-top:10px;border-top:1px solid var(--dim);padding-top:8px">
+        <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px">PROTOCOL STATUS</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;justify-content:space-between;font-size:9px">
+            <span>Modbus TCP</span><span class="dot dot-green" style="margin-top:3px"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px">
+            <span>BACnet/IP</span><span class="dot dot-green" style="margin-top:3px"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px">
+            <span>OPC UA</span><span class="dot dot-amber" style="margin-top:3px"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px">
+            <span>VTScada API</span><span class="dot dot-green" style="margin-top:3px"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px">
+            <span>Power BI DS</span><span class="dot dot-cyan" style="margin-top:3px"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TICKER -->
+  <div class="ticker">
+    <div class="ticker-inner">
+      <span>◈ SYSTEM STATUS</span> SCADA ONLINE · VTScada v12 · Tags: 1,120 · Poll: 200ms ·
+      <span>◈ NETWORK</span> Core Switch UP · Hub B2 WARN · LAN CAT6A CERTIFIED ·
+      <span>◈ BIOMETRIC</span> Face Scan SRV ACTIVE · Match Rate 94% · Auth Today: 1,284 · Denied: 3 ·
+      <span>◈ POWER</span> UPS 87% Batt · Load 34% · Runtime 28min · Mains: NOMINAL ·
+      <span>◈ DET P6 SMART FACTORY</span> Thailand/China/Taiwan · OT/IT CONVERGED · OSI L1-L7 ACTIVE ·
+    </div>
+  </div>
+
+  <!-- SELECTED NODE DETAIL -->
+  <div id="node-detail" style="display:none;margin-top:12px" class="panel">
+    <div class="panel-title" id="nd-title">NODE DETAIL</div>
+    <div id="nd-content" style="font-size:10px;line-height:2;color:var(--text)"></div>
+  </div>
+
+</div>
+
+<!-- TOOLTIP + JS -->
+<div class="tooltip" id="tt"></div>
+
+<script>
+// ── STARFIELD ─────────────────────────────────────────────────────────────
+const sf = document.getElementById('starfield');
+for (let i = 0; i < 180; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  const sz = Math.random() * 2.2 + 0.5;
+  s.style.cssText = `
+    width:${sz}px;height:${sz}px;
+    top:${Math.random()*100}%;left:${Math.random()*100}%;
+    --d:${2+Math.random()*5}s;--a:${0.3+Math.random()*0.7};
+    animation-delay:${Math.random()*5}s;
+  `;
+  sf.appendChild(s);
+}
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toTimeString().slice(0,8) + ' UTC+7';
+}
+setInterval(updateClock, 1000); updateClock();
+
+// ── LIVE METRIC SIMULATION ─────────────────────────────────────────────────
+const scanIds = ['EMP-00247','EMP-00183','EMP-00091','EMP-00312','EMP-00058','EMP-00420'];
+const scanStates = ['SCANNING…','MATCHING…','AUTHORIZED','VERIFYING…'];
+let authCount = 247, authToday = 1284, denyToday = 3;
+
+setInterval(() => {
+  // Auth counter
+  authCount += Math.random() > 0.7 ? 1 : 0;
+  document.getElementById('auth-count').textContent = authCount;
+
+  // Scan sim
+  const idx = Math.floor(Math.random() * scanIds.length);
+  const stIdx = Math.floor(Math.random() * scanStates.length);
+  document.getElementById('scan-id').textContent = scanIds[idx];
+  document.getElementById('scan-state').textContent = scanStates[stIdx];
+
+  // Confidence
+  const conf = 88 + Math.floor(Math.random() * 11);
+  document.getElementById('conf-bar').style.width = conf + '%';
+  document.getElementById('conf-val').textContent = conf + '%';
+
+  // Queue
+  const q = Math.floor(Math.random() * 6);
+  document.getElementById('queue-bar').style.width = (q/8*100) + '%';
+  document.getElementById('queue-val').textContent = q;
+
+  // TX
+  const tx = 380 + Math.floor(Math.random() * 80);
+  document.getElementById('tx-bar').style.width = (tx/1000*100) + '%';
+  document.getElementById('tx-val').textContent = tx + 'Mbps';
+
+  // SW CPU
+  const cpu = 55 + Math.floor(Math.random() * 20);
+  document.getElementById('sw-cpu-bar').style.width = cpu + '%';
+  document.getElementById('sw-cpu-val').textContent = cpu + '%';
+
+}, 2800);
+
+// AUTH TODAY increment
+setInterval(() => {
+  if (Math.random() > 0.6) {
+    authToday++;
+    document.getElementById('auth-today').textContent = authToday.toLocaleString();
+  }
+}, 5000);
+
+// ── EVENT LOG ──────────────────────────────────────────────────────────────
+const events = [
+  ['ok','AUTH GRANTED — EMP-00247'],
+  ['ok','AUTH GRANTED — EMP-00312'],
+  ['warn','SWITCH CPU >65%'],
+  ['ok','SCADA POLL — 200ms OK'],
+  ['err','DENIED — UNKNOWN FACE'],
+  ['ok','OPC UA RECONNECTED'],
+  ['ok','AUTH GRANTED — EMP-00420'],
+  ['warn','UPS LOAD 38%'],
+  ['ok','BACnet DISCOVERY OK'],
+  ['ok','Power BI REFRESH OK'],
+];
+
+setInterval(() => {
+  const feed = document.getElementById('log-feed');
+  const [cls, msg] = events[Math.floor(Math.random() * events.length)];
+  const now = new Date().toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = `<div class="log-time">${now}</div><div class="log-msg ${cls}">${msg}</div>`;
+  feed.insertBefore(div, feed.firstChild);
+  while (feed.children.length > 8) feed.removeChild(feed.lastChild);
+}, 3500);
+
+// ── TOOLTIP ────────────────────────────────────────────────────────────────
+const tt = document.getElementById('tt');
+document.querySelectorAll('[data-tip]').forEach(el => {
+  el.addEventListener('mousemove', e => {
+    tt.innerHTML = el.dataset.tip.replace(/&#10;/g,'<br>');
+    tt.style.left = (e.clientX + 12) + 'px';
+    tt.style.top = (e.clientY - 10) + 'px';
+    tt.classList.add('show');
+  });
+  el.addEventListener('mouseleave', () => tt.classList.remove('show'));
+});
+
+// ── NODE CLICK ─────────────────────────────────────────────────────────────
+const nodeData = {
+  'SCADA Server': {ip:'192.168.1.10',port:'8080',proto:'VTScada v12',vlan:'VLAN10',layer:'L7 Application',status:'ONLINE',cpu:'47%',uptime:'99.97%'},
+  'Face Scan Server': {ip:'192.168.1.20',port:'443/8443',proto:'BiomEngine v3',vlan:'VLAN20',layer:'L7 Application',status:'SCANNING',accuracy:'94%',fps:'30'},
+  'Core Switch': {ip:'192.168.1.1',port:'N/A',proto:'Cisco C2960',vlan:'VLAN10,20,30',layer:'L2/L3',status:'ONLINE',ports:'24',uplink:'1Gbps'},
+  'Hub': {ip:'192.168.2.1',port:'N/A',proto:'Unmanaged 8P',vlan:'N/A',layer:'L1/L2',status:'DEGRADED',ports:'6/8 used'},
+  'UPS': {ip:'192.168.1.30',port:'SNMP 161',proto:'APC 3000VA',vlan:'VLAN10',layer:'Physical',status:'ON MAINS',batt:'87%',runtime:'28min',load:'34%'},
+  'LAN Cable': {ip:'N/A',port:'N/A',proto:'CAT6A',vlan:'N/A',layer:'L1 Physical',status:'CERTIFIED',length:'85m',panel:'PP-B2-01',term:'568B'},
+  'Terminal': {ip:'192.168.2.10',port:'N/A',proto:'IR 2MP Camera',vlan:'VLAN20',layer:'L1 Physical',status:'READY',zone:'ENTRANCE'},
+  'Terminal B2': {ip:'192.168.2.11',port:'N/A',proto:'IR 2MP Camera',vlan:'VLAN20',layer:'L1 Physical',status:'READY',zone:'ZONE B2'},
+  'Power BI': {ip:'cloud',port:'443',proto:'REST/OData',vlan:'WAN',layer:'L7 Application',status:'STREAMING',refresh:'5min'},
+};
+
+function selectNode(el, name) {
+  const d = nodeData[name]; if (!d) return;
+  document.getElementById('nd-title').innerHTML = `▶ ${name.toUpperCase()} — NODE DETAIL`;
+  let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">';
+  for (const [k,v] of Object.entries(d)) {
+    html += `<div style="background:rgba(0,212,255,0.04);border:1px solid var(--dim);padding:6px 10px">
+      <div style="font-size:8px;color:var(--muted);letter-spacing:2px">${k.toUpperCase()}</div>
+      <div style="font-family:'Orbitron',monospace;font-size:11px;color:var(--cyan);margin-top:2px">${v}</div>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('nd-content').innerHTML = html;
+  document.getElementById('node-detail').style.display = 'block';
+  document.getElementById('node-detail').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+</script>
+</body>
+</html>
