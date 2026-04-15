@@ -1,0 +1,2089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AQUA DIGITAL TWIN — SCADA v4.2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #050d14;
+    --panel: #07111c;
+    --panel2: #091622;
+    --border: #0e3d5c;
+    --border-glow: #0ff;
+    --teal: #00e5ff;
+    --green: #00ff88;
+    --yellow: #ffe600;
+    --red: #ff3c5a;
+    --orange: #ff8c00;
+    --blue: #1a8fff;
+    --pipe-fill: #0a4a6e;
+    --pipe-flow: #00c8ff;
+    --text: #c8e8f5;
+    --text-dim: #4a7a9a;
+    --grid: rgba(0,200,255,0.04);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    height: 52px;
+    background: linear-gradient(90deg, #020c14, #071825, #020c14);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 2px 20px rgba(0,200,255,0.1);
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--teal);
+    letter-spacing: 3px;
+    text-shadow: 0 0 20px rgba(0,229,255,0.5);
+  }
+
+  .logo span { color: var(--green); }
+
+  .topbar-center {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .clock { color: var(--teal); font-size: 13px; }
+
+  /* TABS */
+  .tabs {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 20px 0;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 8px 20px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    color: var(--text-dim);
+    background: var(--bg);
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .tab.active {
+    color: var(--teal);
+    background: var(--panel2);
+    border-color: var(--teal);
+    border-bottom: 1px solid var(--panel2);
+    box-shadow: 0 0 12px rgba(0,229,255,0.2), inset 0 1px 0 rgba(0,229,255,0.3);
+    margin-bottom: -1px;
+  }
+
+  .tab:hover:not(.active) {
+    color: var(--text);
+    border-color: #1a5a7a;
+    background: #07111c;
+  }
+
+  /* MAIN CONTENT */
+  .main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* LEFT SIDEBAR */
+  .sidebar {
+    width: 220px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: var(--bg); }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .sidebar-section {
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
+  }
+
+  .sidebar-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .kpi-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 11px;
+  }
+
+  .kpi-label { color: var(--text-dim); font-family: 'Share Tech Mono', monospace; font-size: 10px; }
+  .kpi-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .kpi-val.green { color: var(--green); text-shadow: 0 0 6px rgba(0,255,136,0.4); }
+  .kpi-val.teal { color: var(--teal); text-shadow: 0 0 6px rgba(0,229,255,0.4); }
+  .kpi-val.yellow { color: var(--yellow); text-shadow: 0 0 6px rgba(255,230,0,0.4); }
+  .kpi-val.red { color: var(--red); text-shadow: 0 0 6px rgba(255,60,90,0.4); }
+  .kpi-val.orange { color: var(--orange); }
+
+  .bar-wrap { margin: 4px 0; }
+  .bar-label-row { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); font-family: 'Share Tech Mono', monospace; }
+  .bar-track { height: 6px; background: #0a2535; border-radius: 3px; margin-top: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+  .bar-fill.teal { background: linear-gradient(90deg, #006aff, #00e5ff); box-shadow: 0 0 6px rgba(0,229,255,0.5); }
+  .bar-fill.green { background: linear-gradient(90deg, #00a855, #00ff88); box-shadow: 0 0 6px rgba(0,255,136,0.4); }
+  .bar-fill.yellow { background: linear-gradient(90deg, #cc9900, #ffe600); }
+  .bar-fill.red { background: linear-gradient(90deg, #cc0020, #ff3c5a); }
+
+  .alarm-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    font-size: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    border-bottom: 1px solid rgba(14,61,92,0.4);
+  }
+
+  .alarm-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  .alarm-dot.warn { background: var(--yellow); box-shadow: 0 0 4px var(--yellow); }
+  .alarm-dot.crit { background: var(--red); box-shadow: 0 0 4px var(--red); animation: pulse 1s infinite; }
+  .alarm-dot.ok { background: var(--green); }
+
+  .alarm-text { color: var(--text-dim); flex: 1; line-height: 1.3; }
+
+  /* DIAGRAM AREA */
+  .diagram-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .diagram-title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .diagram-title-bar strong {
+    font-family: 'Orbitron', monospace;
+    color: var(--teal);
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  svg#scada {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* RIGHT PANEL */
+  .right-panel {
+    width: 200px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .right-panel::-webkit-scrollbar { width: 4px; }
+  .right-panel::-webkit-scrollbar-track { background: var(--bg); }
+  .right-panel::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .rpanel-section {
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px;
+  }
+
+  .rpanel-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .device-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 6px;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+
+  .device-card:hover { border-color: var(--teal); }
+
+  .device-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .device-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    color: var(--teal);
+    letter-spacing: 1px;
+  }
+
+  .device-status {
+    font-size: 9px;
+    font-family: 'Share Tech Mono', monospace;
+    padding: 2px 5px;
+    border-radius: 2px;
+  }
+
+  .device-status.run { background: rgba(0,255,136,0.15); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+  .device-status.stop { background: rgba(255,60,90,0.15); color: var(--red); border: 1px solid rgba(255,60,90,0.3); }
+  .device-status.warn { background: rgba(255,230,0,0.15); color: var(--yellow); border: 1px solid rgba(255,230,0,0.3); }
+
+  .device-detail {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+  }
+
+  .device-detail span:last-child { color: var(--text); }
+
+  /* BOTTOM STATUS BAR */
+  .statusbar {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 4px 20px;
+    background: #020c14;
+    border-top: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .statusbar .item { display: flex; align-items: center; gap: 6px; }
+  .statusbar .item b { color: var(--teal); }
+
+  /* SCADA SVG Styles */
+  .pipe { stroke-linecap: round; }
+  .pipe-cold { stroke: #0a5c8a; stroke-width: 8; fill: none; }
+  .pipe-hot { stroke: #7a2200; stroke-width: 8; fill: none; }
+  .pipe-flow { stroke: #00c8ff; stroke-width: 4; fill: none; stroke-dasharray: 12 8; animation: flowMove 1.5s linear infinite; }
+  .pipe-flow-drain { stroke: #00c8ff; stroke-width: 4; fill: none; stroke-dasharray: 12 8; animation: flowDrain 1.5s linear infinite; }
+  .pipe-flow-slow { stroke: #007aaa; stroke-width: 3; fill: none; stroke-dasharray: 8 12; animation: flowMove 3s linear infinite; }
+  .pipe-flow-waste { stroke: #8b6914; stroke-width: 3; fill: none; stroke-dasharray: 6 10; animation: flowMove 2.5s linear infinite; }
+
+  @keyframes flowMove { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -40; } }
+  @keyframes flowDrain { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 40; } }
+
+  .tank-body { rx: 4; }
+  .tank-water { rx: 3; }
+  .tank-label { font-family: 'Orbitron', monospace; font-size: 9px; fill: #00e5ff; letter-spacing: 1px; }
+  .tank-val { font-family: 'Share Tech Mono', monospace; font-size: 11px; font-weight: bold; fill: #fff; }
+  .device-label { font-family: 'Orbitron', monospace; font-size: 8px; fill: #4a7a9a; letter-spacing: 0.5px; }
+  .device-val { font-family: 'Share Tech Mono', monospace; font-size: 10px; fill: #00e5ff; }
+  .sensor-label { font-family: 'Share Tech Mono', monospace; font-size: 9px; fill: #c8e8f5; }
+  .zone-label { font-family: 'Orbitron', monospace; font-size: 10px; fill: rgba(0,229,255,0.3); letter-spacing: 2px; }
+
+  .pump-body { animation: pumpSpin 1s linear infinite; transform-origin: center; }
+  .pump-body-2 { animation: pumpSpin2 1.2s linear infinite; transform-origin: center; }
+
+  @keyframes pumpSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  @keyframes pumpSpin2 {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(-360deg); }
+  }
+
+  .valve-open { fill: #00ff88; }
+  .valve-closed { fill: #ff3c5a; }
+  .valve-partial { fill: #ffe600; }
+
+  .sensor-box {
+    fill: #07111c;
+    stroke: #0e3d5c;
+    stroke-width: 1;
+    rx: 3;
+  }
+
+  .glow-green { filter: drop-shadow(0 0 4px rgba(0,255,136,0.6)); }
+  .glow-teal { filter: drop-shadow(0 0 6px rgba(0,229,255,0.5)); }
+  .glow-red { filter: drop-shadow(0 0 4px rgba(255,60,90,0.7)); }
+  .glow-yellow { filter: drop-shadow(0 0 4px rgba(255,230,0,0.6)); }
+
+  .alert-flash { animation: alertFlash 1s ease-in-out infinite; }
+  @keyframes alertFlash {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .scanline {
+    fill: none;
+    stroke: rgba(0,229,255,0.03);
+    stroke-width: 1;
+  }
+
+  /* ===== CONFIG PANEL ===== */
+  .config-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    background: rgba(2,10,18,0.97);
+    overflow-y: auto;
+    padding: 20px;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .config-overlay.active { display: flex; }
+
+  .cfg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .cfg-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    color: var(--teal);
+    letter-spacing: 3px;
+  }
+  .cfg-subtitle { color: var(--text-dim); font-size: 11px; font-family:'Share Tech Mono',monospace; margin-top:3px; }
+
+  .cfg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+  }
+
+  .cfg-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px;
+  }
+  .cfg-card-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--teal);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cfg-card-title .zone-badge {
+    font-size: 8px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.2);
+  }
+
+  .cfg-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .cfg-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    flex: 1;
+    white-space: nowrap;
+  }
+  .cfg-val-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--teal);
+    min-width: 52px;
+    text-align: right;
+  }
+
+  .cfg-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 140px;
+    height: 4px;
+    background: #0a2535;
+    border-radius: 2px;
+    outline: none;
+    flex-shrink: 0;
+  }
+  .cfg-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--teal);
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,229,255,0.6);
+  }
+  .cfg-slider::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--teal);
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 6px rgba(0,229,255,0.6);
+  }
+
+  .cfg-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .cfg-toggle {
+    position: relative;
+    width: 40px; height: 20px;
+    cursor: pointer;
+  }
+  .cfg-toggle input { display: none; }
+  .cfg-toggle-track {
+    width: 40px; height: 20px;
+    background: #0a2535;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    transition: background 0.2s;
+    position: relative;
+    display: block;
+  }
+  .cfg-toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: transform 0.2s, background 0.2s;
+  }
+  .cfg-toggle input:checked + .cfg-toggle-track {
+    background: rgba(0,255,136,0.15);
+    border-color: var(--green);
+  }
+  .cfg-toggle input:checked + .cfg-toggle-track::after {
+    transform: translateX(20px);
+    background: var(--green);
+    box-shadow: 0 0 6px rgba(0,255,136,0.6);
+  }
+
+  .cfg-select {
+    background: #07111c;
+    border: 1px solid var(--border);
+    color: var(--teal);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 3px 6px;
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .cfg-apply-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    background: rgba(0,229,255,0.08);
+    color: var(--teal);
+    border: 1px solid rgba(0,229,255,0.3);
+    padding: 8px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cfg-apply-btn:hover {
+    background: rgba(0,229,255,0.15);
+    box-shadow: 0 0 12px rgba(0,229,255,0.2);
+  }
+  .cfg-reset-btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    background: rgba(255,60,90,0.06);
+    color: var(--red);
+    border: 1px solid rgba(255,60,90,0.2);
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cfg-reset-btn:hover { background: rgba(255,60,90,0.12); }
+
+  .cfg-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(0,229,255,0.05);
+    border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .cfg-live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 6px var(--green);
+    animation: pulse 1.5s infinite;
+  }
+
+  .alarm-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .alarm-badge.warn { background: rgba(255,230,0,0.15); color: var(--yellow); border: 1px solid rgba(255,230,0,0.3); }
+  .alarm-badge.crit { background: rgba(255,60,90,0.15); color: var(--red); border: 1px solid rgba(255,60,90,0.3); }
+  .alarm-badge.ok   { background: rgba(0,255,136,0.12); color: var(--green); border: 1px solid rgba(0,255,136,0.25); }
+
+  .cfg-divider { border: none; border-top: 1px solid var(--border); margin: 6px 0; }
+
+  /* Scenario presets */
+  .preset-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-dim);
+    transition: all 0.15s;
+    margin: 2px;
+  }
+  .preset-btn:hover { border-color: var(--teal); color: var(--teal); }
+  .preset-btn.active-preset { border-color: var(--green); color: var(--green); background: rgba(0,255,136,0.07); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">AQUA<span>TWIN</span> <span style="font-size:11px;color:#4a7a9a;font-weight:400;">DIGITAL TWIN</span></div>
+  <div class="topbar-center">
+    SITE: FACTORY COMPLEX A — WATER TREATMENT &amp; DISTRIBUTION SYSTEM<br>
+    <span style="color:#0a4a6e">NODE: SCT-PRIMARY-01 &nbsp;|&nbsp; PLC: SIMATIC S7-1500 &nbsp;|&nbsp; NET: PROFINET</span>
+  </div>
+  <div class="topbar-right">
+    <div style="display:flex;align-items:center;gap:6px"><div class="status-dot"></div><span style="color:var(--green)">ONLINE</span></div>
+    <div>OPERATOR: <span style="color:var(--teal)">SYS_ADM</span></div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" id="tab-twin" onclick="switchTab('twin')">⬡ DIGITAL TWIN</div>
+  <div class="tab" id="tab-trend" onclick="switchTab('trend')">▦ DATA TREND</div>
+  <div class="tab" id="tab-alarms" onclick="switchTab('alarms')">⚠ ALARMS</div>
+  <div class="tab" id="tab-config" onclick="switchTab('config')">⚙ CONFIG</div>
+  <div class="tab" id="tab-reports" onclick="switchTab('reports')">📋 REPORTS</div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main" id="main-area">
+
+  <!-- ===== CONFIG PANEL OVERLAY ===== -->
+  <div class="config-overlay" id="config-panel">
+
+    <div class="cfg-header">
+      <div>
+        <div class="cfg-title">⚙ SIMULATION CONFIGURATOR</div>
+        <div class="cfg-subtitle">Adjust parameters below — visual updates in real-time &nbsp;|&nbsp; Changes apply to live twin immediately</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="cfg-reset-btn" onclick="resetDefaults()">↺ RESET DEFAULTS</button>
+        <button class="cfg-apply-btn" onclick="applyAndClose()">▶ APPLY &amp; VIEW TWIN</button>
+      </div>
+    </div>
+
+    <!-- Live config status bar -->
+    <div class="cfg-status-bar">
+      <div class="cfg-live-dot"></div>
+      <span>SIM ENGINE: LIVE &nbsp;|&nbsp;</span>
+      <span>Scenario: <span id="cfg-scenario-name" style="color:var(--teal)">NORMAL OPS</span></span>
+      <span style="margin-left:auto">Alarms active: <span id="cfg-alarm-count" style="color:var(--yellow)">3</span></span>
+    </div>
+
+    <!-- Scenario Presets -->
+    <div class="cfg-card">
+      <div class="cfg-card-title">⬡ SCENARIO PRESETS <span class="zone-badge">QUICK LOAD</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        <button class="preset-btn active-preset" id="preset-normal" onclick="loadPreset('normal')">✔ NORMAL OPS</button>
+        <button class="preset-btn" id="preset-peak" onclick="loadPreset('peak')">⚡ PEAK DEMAND</button>
+        <button class="preset-btn" id="preset-fire" onclick="loadPreset('fire')">🔴 FIRE EVENT</button>
+        <button class="preset-btn" id="preset-drought" onclick="loadPreset('drought')">⚠ LOW INTAKE</button>
+        <button class="preset-btn" id="preset-maintenance" onclick="loadPreset('maintenance')">🔧 MAINTENANCE</button>
+        <button class="preset-btn" id="preset-alarm" onclick="loadPreset('alarm')">⚠ MULTI-ALARM</button>
+      </div>
+    </div>
+
+    <div class="cfg-grid">
+
+      <!-- INTAKE ZONE CONFIG -->
+      <div class="cfg-card">
+        <div class="cfg-card-title">🔵 INTAKE ZONE <span class="zone-badge">T-01 / P-01</span></div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Intake Tank T-01 Level</span>
+          <input type="range" class="cfg-slider" id="cfg-t1" min="10" max="100" value="78"
+            oninput="updateSlider('t1',this.value,'%')">
+          <span class="cfg-val-display" id="cfg-t1-val">78%</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Intake Flow Rate</span>
+          <input type="range" class="cfg-slider" id="cfg-intake-flow" min="50" max="400" value="248"
+            oninput="updateSlider('intake-flow',this.value,' m³/h')">
+          <span class="cfg-val-display" id="cfg-intake-flow-val">248 m³/h</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Raw Water Temp</span>
+          <input type="range" class="cfg-slider" id="cfg-raw-temp" min="10" max="35" value="18"
+            oninput="updateSlider('raw-temp',this.value,'°C')">
+          <span class="cfg-val-display" id="cfg-raw-temp-val">18°C</span>
+        </div>
+
+        <hr class="cfg-divider">
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Pump P-01 Running</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-p01" checked onchange="updatePumpState('p01',this.checked)"><span class="cfg-toggle-track"></span></label>
+        </div>
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">VLV-01 Inlet Open</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-vlv01" checked onchange="updateValve('vlv01',this.checked)"><span class="cfg-toggle-track"></span></label>
+        </div>
+      </div>
+
+      <!-- TREATMENT ZONE CONFIG -->
+      <div class="cfg-card">
+        <div class="cfg-card-title">🟢 TREATMENT ZONE <span class="zone-badge">SF-01 / UV / COAG</span></div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">pH Level (outlet)</span>
+          <input type="range" class="cfg-slider" id="cfg-ph" min="60" max="90" value="72"
+            oninput="updateSlider('ph',this.value/10,' pH')">
+          <span class="cfg-val-display" id="cfg-ph-val">7.2 pH</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Turbidity (NTU)</span>
+          <input type="range" class="cfg-slider" id="cfg-turbidity" min="1" max="50" value="2"
+            oninput="updateSlider('turbidity',this.value/10,' NTU')">
+          <span class="cfg-val-display" id="cfg-turbidity-val">0.2 NTU</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Chlorine Dose (mg/L)</span>
+          <input type="range" class="cfg-slider" id="cfg-chlorine" min="1" max="30" value="5"
+            oninput="updateSlider('chlorine',this.value/10,' mg/L')">
+          <span class="cfg-val-display" id="cfg-chlorine-val">0.5 mg/L</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Chemical Dosing Rate</span>
+          <input type="range" class="cfg-slider" id="cfg-dose" min="0" max="100" value="45"
+            oninput="updateSlider('dose',this.value,'%')">
+          <span class="cfg-val-display" id="cfg-dose-val">45%</span>
+        </div>
+
+        <hr class="cfg-divider">
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">UV Disinfection ON</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-uv" checked onchange="updateUV(this.checked)"><span class="cfg-toggle-track"></span></label>
+        </div>
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Sand Filter Active</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-sf" checked><span class="cfg-toggle-track"></span></label>
+        </div>
+      </div>
+
+      <!-- DISTRIBUTION ZONE CONFIG -->
+      <div class="cfg-card">
+        <div class="cfg-card-title">💧 DISTRIBUTION ZONE <span class="zone-badge">T-02 / T-03 / P-02/03</span></div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Clear Water Tank T-02</span>
+          <input type="range" class="cfg-slider" id="cfg-t2" min="10" max="100" value="91"
+            oninput="updateSlider('t2',this.value,'%')">
+          <span class="cfg-val-display" id="cfg-t2-val">91%</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Process Tank T-03</span>
+          <input type="range" class="cfg-slider" id="cfg-t3" min="10" max="100" value="55"
+            oninput="updateSlider('t3',this.value,'%')">
+          <span class="cfg-val-display" id="cfg-t3-val">55%</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">System Pressure</span>
+          <input type="range" class="cfg-slider" id="cfg-pressure" min="10" max="80" value="38"
+            oninput="updateSlider('pressure',this.value/10,' bar')">
+          <span class="cfg-val-display" id="cfg-pressure-val">3.8 bar</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Distribution Flow</span>
+          <input type="range" class="cfg-slider" id="cfg-dist-flow" min="50" max="500" value="248"
+            oninput="updateSlider('dist-flow',this.value,' m³/h')">
+          <span class="cfg-val-display" id="cfg-dist-flow-val">248 m³/h</span>
+        </div>
+
+        <hr class="cfg-divider">
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Pump P-02 Running</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-p02" checked onchange="updatePumpState('p02',this.checked)"><span class="cfg-toggle-track"></span></label>
+        </div>
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Pump P-03 Running (standby)</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-p03" onchange="updatePumpState('p03',this.checked)"><span class="cfg-toggle-track"></span></label>
+        </div>
+      </div>
+
+      <!-- PROCESS ZONE CONFIG -->
+      <div class="cfg-card">
+        <div class="cfg-card-title">🌡 PROCESS ZONE <span class="zone-badge">CT-01 / HX-01 / P-04</span></div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Cooling Tower Inlet T°</span>
+          <input type="range" class="cfg-slider" id="cfg-ct-in" min="25" max="75" value="52"
+            oninput="updateSlider('ct-in',this.value,'°C')">
+          <span class="cfg-val-display" id="cfg-ct-in-val">52°C</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Cooling Tower Outlet T°</span>
+          <input type="range" class="cfg-slider" id="cfg-ct-out" min="15" max="50" value="32"
+            oninput="updateSlider('ct-out',this.value,'°C')">
+          <span class="cfg-val-display" id="cfg-ct-out-val">32°C</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">HX Temperature (°C)</span>
+          <input type="range" class="cfg-slider" id="cfg-hx-temp" min="20" max="80" value="42"
+            oninput="updateSlider('hx-temp',this.value,'°C')">
+          <span class="cfg-val-display" id="cfg-hx-temp-val">42°C</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Process Sump T-04 Level</span>
+          <input type="range" class="cfg-slider" id="cfg-t4" min="10" max="100" value="68"
+            oninput="updateSlider('t4',this.value,'%')">
+          <span class="cfg-val-display" id="cfg-t4-val">68%</span>
+        </div>
+
+        <hr class="cfg-divider">
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Cooling Tower Running</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-ct" checked onchange="updateCT(this.checked)"><span class="cfg-toggle-track"></span></label>
+        </div>
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Pump P-04 Running</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-p04" checked onchange="updatePumpState('p04',this.checked)"><span class="cfg-toggle-track"></span></label>
+        </div>
+      </div>
+
+      <!-- FIRE SYSTEM CONFIG -->
+      <div class="cfg-card">
+        <div class="cfg-card-title">🔴 FIRE SYSTEM <span class="zone-badge">FIRE RES / JP / FP</span></div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Fire Reserve Level</span>
+          <input type="range" class="cfg-slider" id="cfg-fire" min="30" max="100" value="100"
+            oninput="updateSlider('fire',this.value,'%')">
+          <span class="cfg-val-display" id="cfg-fire-val">100%</span>
+        </div>
+
+        <hr class="cfg-divider">
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Fire Event Active 🔴</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-fire-event" onchange="updateFireEvent(this.checked)"><span class="cfg-toggle-track"></span></label>
+        </div>
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Jockey Pump Running</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-jp" checked><span class="cfg-toggle-track"></span></label>
+        </div>
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Fire Pump STANDBY → RUN</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-fp" onchange="updateFirePump(this.checked)"><span class="cfg-toggle-track"></span></label>
+        </div>
+      </div>
+
+      <!-- ENERGY & WASTEWATER -->
+      <div class="cfg-card">
+        <div class="cfg-card-title">⚡ ENERGY + WASTEWATER</div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Total Power Load</span>
+          <input type="range" class="cfg-slider" id="cfg-power" min="50" max="500" value="248"
+            oninput="updateSlider('power',this.value,' kW')">
+          <span class="cfg-val-display" id="cfg-power-val">248 kW</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Specific Energy</span>
+          <input type="range" class="cfg-slider" id="cfg-spec-e" min="20" max="100" value="42"
+            oninput="updateSlider('spec-e',this.value/100,' kWh/m³')">
+          <span class="cfg-val-display" id="cfg-spec-e-val">0.42 kWh/m³</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Wastewater Sump Level</span>
+          <input type="range" class="cfg-slider" id="cfg-ww" min="5" max="100" value="42"
+            oninput="updateSlider('ww',this.value,'%')">
+          <span class="cfg-val-display" id="cfg-ww-val">42%</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Simulation Speed</span>
+          <select class="cfg-select" id="cfg-sim-speed" onchange="updateSimSpeed(this.value)">
+            <option value="4000">0.5× SLOW</option>
+            <option value="2000" selected>1× NORMAL</option>
+            <option value="1000">2× FAST</option>
+            <option value="400">5× VERY FAST</option>
+          </select>
+          <span class="cfg-val-display" id="cfg-sim-speed-val">1×</span>
+        </div>
+
+        <hr class="cfg-divider">
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Enable Noise/Variance</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-noise" checked><span class="cfg-toggle-track"></span></label>
+        </div>
+        <div class="cfg-toggle-row">
+          <span class="cfg-label">Wastewater Pump P-05</span>
+          <label class="cfg-toggle"><input type="checkbox" id="cfg-p05" checked><span class="cfg-toggle-track"></span></label>
+        </div>
+      </div>
+
+      <!-- ALARMS THRESHOLD CONFIG -->
+      <div class="cfg-card">
+        <div class="cfg-card-title">⚠ ALARM THRESHOLDS <span class="zone-badge">SETPOINTS</span></div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Tank Low Alarm (%)</span>
+          <input type="range" class="cfg-slider" id="cfg-low-alarm" min="5" max="40" value="20"
+            oninput="updateSlider('low-alarm',this.value,'%')">
+          <span class="cfg-val-display" id="cfg-low-alarm-val">20%</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Tank High Alarm (%)</span>
+          <input type="range" class="cfg-slider" id="cfg-high-alarm" min="70" max="99" value="95"
+            oninput="updateSlider('high-alarm',this.value,'%')">
+          <span class="cfg-val-display" id="cfg-high-alarm-val">95%</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">Pressure High (bar)</span>
+          <input type="range" class="cfg-slider" id="cfg-pres-alarm" min="30" max="80" value="55"
+            oninput="updateSlider('pres-alarm',this.value/10,' bar')">
+          <span class="cfg-val-display" id="cfg-pres-alarm-val">5.5 bar</span>
+        </div>
+
+        <div class="cfg-row">
+          <span class="cfg-label">pH Low Alarm</span>
+          <input type="range" class="cfg-slider" id="cfg-ph-low" min="50" max="70" value="65"
+            oninput="updateSlider('ph-low',this.value/10,' pH')">
+          <span class="cfg-val-display" id="cfg-ph-low-val">6.5 pH</span>
+        </div>
+
+        <hr class="cfg-divider">
+        <div id="cfg-alarm-status" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim)">
+          Alarm status auto-computed from current values
+        </div>
+      </div>
+
+    </div><!-- end cfg-grid -->
+
+  </div><!-- end config-overlay -->
+
+  <!-- ===== TWIN CONTENT ===== -->
+  <div id="twin-content" style="display:flex;flex:1;overflow:hidden;min-width:0">
+
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">◈ SYSTEM KPIs</div>
+
+      <div class="kpi-row"><span class="kpi-label">TOTAL FLOW</span><span class="kpi-val teal" id="kpi-flow">248.3 m³/h</span></div>
+      <div class="kpi-row"><span class="kpi-label">PRESSURE</span><span class="kpi-val green" id="kpi-pres">3.8 bar</span></div>
+      <div class="kpi-row"><span class="kpi-label">DAILY CONS.</span><span class="kpi-val teal">1,842 m³</span></div>
+      <div class="kpi-row"><span class="kpi-label">EFFICIENCY</span><span class="kpi-val green">94.2 %</span></div>
+      <div class="kpi-row"><span class="kpi-label">WATER LOSS</span><span class="kpi-val yellow">5.8 %</span></div>
+      <div class="kpi-row"><span class="kpi-label">ACTIVE PUMPS</span><span class="kpi-val green">3 / 4</span></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">◈ TANK LEVELS</div>
+      <div class="bar-wrap">
+        <div class="bar-label-row"><span>INTAKE T-01</span><span id="t1-pct">78%</span></div>
+        <div class="bar-track"><div class="bar-fill teal" id="t1-bar" style="width:78%"></div></div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-label-row"><span>CLEAR T-02</span><span id="t2-pct">91%</span></div>
+        <div class="bar-track"><div class="bar-fill green" id="t2-bar" style="width:91%"></div></div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-label-row"><span>PROCESS T-03</span><span id="t3-pct">55%</span></div>
+        <div class="bar-track"><div class="bar-fill teal" id="t3-bar" style="width:55%"></div></div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-label-row"><span>FIRE RESERVE</span><span>100%</span></div>
+        <div class="bar-track"><div class="bar-fill green" style="width:100%"></div></div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-label-row"><span>WASTEWATER</span><span id="t4-pct">42%</span></div>
+        <div class="bar-track"><div class="bar-fill yellow" id="t4-bar" style="width:42%"></div></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">◈ WATER QUALITY</div>
+      <div class="kpi-row"><span class="kpi-label">pH LEVEL</span><span class="kpi-val green">7.24</span></div>
+      <div class="kpi-row"><span class="kpi-label">TURBIDITY</span><span class="kpi-val green">0.18 NTU</span></div>
+      <div class="kpi-row"><span class="kpi-label">CHLORINE</span><span class="kpi-val teal">0.52 mg/L</span></div>
+      <div class="kpi-row"><span class="kpi-label">CONDUCTIVITY</span><span class="kpi-val teal">428 µS/cm</span></div>
+      <div class="kpi-row"><span class="kpi-label">TEMP (INLET)</span><span class="kpi-val teal">18.4 °C</span></div>
+      <div class="kpi-row"><span class="kpi-label">DO LEVEL</span><span class="kpi-val yellow">6.2 mg/L</span></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">◈ ALARMS [<span id="alarm-count">3</span>]</div>
+      <div id="alarm-sidebar">
+      <div class="alarm-item">
+        <div class="alarm-dot crit"></div>
+        <div class="alarm-text">FT-203 HIGH FLOW<br><span style="color:#2a4a5a">14:02:11</span></div>
+      </div>
+      <div class="alarm-item">
+        <div class="alarm-dot warn"></div>
+        <div class="alarm-text">PT-105 WARN PRESS<br><span style="color:#2a4a5a">13:55:44</span></div>
+      </div>
+      <div class="alarm-item">
+        <div class="alarm-dot warn"></div>
+        <div class="alarm-text">LT-301 LOW LEVEL<br><span style="color:#2a4a5a">13:41:08</span></div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIAGRAM AREA -->
+  <div class="diagram-area">
+    <div class="diagram-title-bar">
+      <div><strong>WATER SYSTEM — P&amp;ID DIAGRAM</strong> &nbsp;|&nbsp; REV.4.2 &nbsp;|&nbsp; AREA: MAIN PLANT</div>
+      <div>ZOOM: 100% &nbsp;|&nbsp; <span style="color:var(--green)">● LIVE</span> &nbsp;|&nbsp; SCAN: 500ms</div>
+    </div>
+
+    <svg id="scada" viewBox="0 0 900 520" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+
+      <!-- Background zones -->
+      <rect x="0" y="0" width="900" height="520" fill="#050d14"/>
+
+      <!-- Zone backgrounds -->
+      <rect x="10" y="10" width="175" height="500" fill="rgba(0,100,180,0.04)" stroke="rgba(0,200,255,0.07)" stroke-width="1" rx="4"/>
+      <rect x="195" y="10" width="185" height="240" fill="rgba(0,80,40,0.05)" stroke="rgba(0,255,136,0.07)" stroke-width="1" rx="4"/>
+      <rect x="390" y="10" width="195" height="500" fill="rgba(0,60,120,0.04)" stroke="rgba(0,180,255,0.07)" stroke-width="1" rx="4"/>
+      <rect x="595" y="10" width="155" height="500" fill="rgba(80,60,0,0.04)" stroke="rgba(255,140,0,0.06)" stroke-width="1" rx="4"/>
+      <rect x="195" y="265" width="185" height="245" fill="rgba(100,40,0,0.04)" stroke="rgba(200,80,0,0.06)" stroke-width="1" rx="4"/>
+      <rect x="760" y="10" width="130" height="500" fill="rgba(0,40,100,0.04)" stroke="rgba(0,100,200,0.06)" stroke-width="1" rx="4"/>
+
+      <!-- Zone labels -->
+      <text x="97" y="26" text-anchor="middle" class="zone-label">INTAKE</text>
+      <text x="288" y="26" text-anchor="middle" class="zone-label">TREATMENT</text>
+      <text x="488" y="26" text-anchor="middle" class="zone-label">DISTRIBUTION</text>
+      <text x="672" y="26" text-anchor="middle" class="zone-label">PROCESS</text>
+      <text x="288" y="281" text-anchor="middle" class="zone-label">WASTE</text>
+      <text x="825" y="26" text-anchor="middle" class="zone-label">FIRE SYS</text>
+
+      <!-- ===================== INTAKE ZONE ===================== -->
+
+      <!-- Raw water source symbol -->
+      <ellipse cx="60" cy="80" rx="30" ry="12" fill="rgba(0,100,180,0.3)" stroke="#0a5c8a" stroke-width="1.5"/>
+      <ellipse cx="60" cy="77" rx="25" ry="8" fill="rgba(0,150,220,0.2)" stroke="#0a7ab0" stroke-width="1"/>
+      <text x="60" y="73" text-anchor="middle" class="device-label" style="font-size:7px">SOURCE</text>
+      <text x="60" y="97" text-anchor="middle" class="device-label">RAW WATER</text>
+
+      <!-- Pipe from source down to screen -->
+      <line x1="60" y1="92" x2="60" y2="130" class="pipe-cold" stroke-width="6"/>
+      <line x1="60" y1="92" x2="60" y2="130" class="pipe-flow"/>
+
+      <!-- Screen Filter S-01 -->
+      <rect x="44" y="130" width="32" height="18" fill="#071825" stroke="#0a5c8a" stroke-width="1.5" rx="2"/>
+      <line x1="50" y1="134" x2="50" y2="144" stroke="#1a7aaa" stroke-width="1"/>
+      <line x1="56" y1="132" x2="56" y2="146" stroke="#1a7aaa" stroke-width="1"/>
+      <line x1="62" y1="132" x2="62" y2="146" stroke="#1a7aaa" stroke-width="1"/>
+      <line x1="68" y1="134" x2="68" y2="144" stroke="#1a7aaa" stroke-width="1"/>
+      <text x="60" y="160" text-anchor="middle" class="device-label">SCR-01</text>
+
+      <!-- Pipe down to Intake Tank -->
+      <line x1="60" y1="148" x2="60" y2="175" class="pipe-cold" stroke-width="6"/>
+      <line x1="60" y1="148" x2="60" y2="175" class="pipe-flow"/>
+
+      <!-- INTAKE TANK T-01 -->
+      <rect x="28" y="175" width="64" height="90" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="30" y="177" width="60" height="2" fill="#0e5c8a" rx="1"/>
+      <!-- Water fill animated -->
+      <rect x="30" y="211" width="60" height="52" fill="rgba(0,100,200,0.35)" rx="2" class="glow-teal"/>
+      <rect x="30" y="209" width="60" height="4" fill="rgba(0,200,255,0.4)"/>
+      <!-- Level markings -->
+      <line x1="88" y1="183" x2="92" y2="183" stroke="#0e3d5c" stroke-width="1"/>
+      <line x1="88" y1="203" x2="92" y2="203" stroke="#0e3d5c" stroke-width="1"/>
+      <line x1="88" y1="223" x2="92" y2="223" stroke="#0e3d5c" stroke-width="1"/>
+      <line x1="88" y1="243" x2="92" y2="243" stroke="#0e3d5c" stroke-width="1"/>
+      <text x="60" y="222" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:12px;fill:#00e5ff;font-weight:bold">78%</text>
+      <text x="60" y="235" text-anchor="middle" class="tank-label">T-01</text>
+      <text x="60" y="247" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">2,400 m³</text>
+      <text x="60" y="274" text-anchor="middle" class="device-label">INTAKE TANK</text>
+
+      <!-- Level Sensor LT-01 -->
+      <rect x="92" y="190" width="38" height="22" class="sensor-box" rx="2"/>
+      <text x="111" y="199" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">LT-01</text>
+      <text x="111" y="209" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#00e5ff">78.4%</text>
+
+      <!-- Inlet Valve VLV-01 -->
+      <g transform="translate(60,168)">
+        <polygon points="0,-7 7,7 -7,7" fill="#00ff88" stroke="#005a30" stroke-width="1"/>
+        <polygon points="0,7 7,-7 -7,-7" fill="#00ff88" stroke="#005a30" stroke-width="1"/>
+        <text x="0" y="20" text-anchor="middle" class="device-label">VLV-01</text>
+      </g>
+
+      <!-- Pipe from T-01 down to Pump -->
+      <line x1="60" y1="265" x2="60" y2="315" class="pipe-cold" stroke-width="6"/>
+      <line x1="60" y1="265" x2="60" y2="315" class="pipe-flow"/>
+
+      <!-- Flow Meter FT-01 -->
+      <rect x="44" y="290" width="32" height="18" fill="#071825" stroke="#0a5c8a" stroke-width="1.5" rx="2"/>
+      <circle cx="60" cy="299" r="6" fill="none" stroke="#00e5ff" stroke-width="1.5"/>
+      <text x="60" y="303" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:7px;fill:#00e5ff">↺</text>
+      <text x="60" y="318" text-anchor="middle" class="device-label">FT-01</text>
+
+      <!-- PUMP P-01 (Intake Pump) -->
+      <g class="glow-green">
+        <circle cx="60" cy="350" r="20" fill="#050d14" stroke="#005a30" stroke-width="2"/>
+        <g class="pump-body" style="transform-origin:60px 350px">
+          <line x1="60" y1="333" x2="60" y2="345" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="60" y1="355" x2="60" y2="367" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="43" y1="350" x2="55" y2="350" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="65" y1="350" x2="77" y2="350" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="48" y1="338" x2="56" y2="346" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="64" y1="354" x2="72" y2="362" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="72" y1="338" x2="64" y2="346" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="56" y1="354" x2="48" y2="362" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+        </g>
+        <circle cx="60" cy="350" r="5" fill="#00ff88"/>
+      </g>
+      <text x="60" y="380" text-anchor="middle" class="device-label">P-01</text>
+      <text x="60" y="390" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00ff88">75 kW RUN</text>
+
+      <!-- Pipe right from P-01 to Treatment -->
+      <line x1="80" y1="350" x2="195" y2="350" class="pipe-cold" stroke-width="6"/>
+      <line x1="80" y1="350" x2="195" y2="350" class="pipe-flow"/>
+
+      <!-- ===================== TREATMENT ZONE ===================== -->
+
+      <!-- Dosing Chemical Tank -->
+      <rect x="200" y="35" width="40" height="55" fill="#050d18" stroke="#1a3d5c" stroke-width="1.5" rx="3"/>
+      <rect x="202" y="60" width="36" height="28" fill="rgba(0,200,80,0.2)" rx="2"/>
+      <text x="220" y="52" text-anchor="middle" class="device-label">CHEM</text>
+      <text x="220" y="62" text-anchor="middle" class="device-label">DOSING</text>
+
+      <!-- Coagulation Tank -->
+      <rect x="200" y="110" width="55" height="70" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="202" y="112" width="51" height="2" fill="#0e5c8a" rx="1"/>
+      <rect x="202" y="145" width="51" height="33" fill="rgba(0,140,180,0.3)" rx="2"/>
+      <!-- Mixer blades -->
+      <line x1="227" y1="130" x2="227" y2="178" stroke="#0e3d5c" stroke-width="1.5"/>
+      <line x1="215" y1="155" x2="240" y2="155" stroke="#1a7aaa" stroke-width="2" stroke-linecap="round"/>
+      <line x1="218" y1="148" x2="237" y2="162" stroke="#1a7aaa" stroke-width="1.5" stroke-linecap="round"/>
+      <text x="227" y="193" text-anchor="middle" class="tank-label">COAG</text>
+
+      <!-- Sedimentation Tank -->
+      <rect x="265" y="110" width="65" height="70" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="267" y="112" width="61" height="2" fill="#0e5c8a" rx="1"/>
+      <rect x="267" y="148" width="61" height="30" fill="rgba(0,100,160,0.35)" rx="2"/>
+      <!-- Sludge at bottom -->
+      <rect x="267" y="173" width="61" height="5" fill="rgba(80,60,20,0.5)" rx="2"/>
+      <text x="297" y="193" text-anchor="middle" class="tank-label">SEDIM</text>
+
+      <!-- Filter (Sand Filter) -->
+      <rect x="200" y="198" width="130" height="52" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <!-- Filter media layers -->
+      <rect x="202" y="215" width="126" height="10" fill="rgba(200,180,100,0.2)" rx="1"/>
+      <rect x="202" y="226" width="126" height="8" fill="rgba(150,130,80,0.2)" rx="1"/>
+      <rect x="202" y="235" width="126" height="12" fill="rgba(100,80,40,0.15)" rx="1"/>
+      <!-- Layer lines -->
+      <line x1="202" y1="215" x2="328" y2="215" stroke="#2a4a2a" stroke-width="0.5"/>
+      <line x1="202" y1="226" x2="328" y2="226" stroke="#2a4a2a" stroke-width="0.5"/>
+      <line x1="202" y1="235" x2="328" y2="235" stroke="#2a4a2a" stroke-width="0.5"/>
+      <text x="265" y="210" text-anchor="middle" class="device-label">SAND FILTER — SF-01</text>
+
+      <!-- Pipe: Chemical dosing to Coag -->
+      <line x1="220" y1="90" x2="220" y2="110" stroke="#2a8a50" stroke-width="3"/>
+      <line x1="220" y1="90" x2="220" y2="110" stroke="#00a855" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+      <!-- Pipe: Coag to Sedim -->
+      <line x1="255" y1="145" x2="265" y2="145" class="pipe-cold" stroke-width="5"/>
+      <line x1="255" y1="145" x2="265" y2="145" class="pipe-flow-slow"/>
+
+      <!-- Pipe: from P-01 up to Coag -->
+      <line x1="195" y1="350" x2="195" y2="145" class="pipe-cold" stroke-width="6"/>
+      <line x1="195" y1="350" x2="195" y2="145" class="pipe-flow-drain"/>
+      <line x1="195" y1="145" x2="200" y2="145" class="pipe-cold" stroke-width="6"/>
+
+      <!-- Pipe: Sedim to Filter -->
+      <line x1="297" y1="180" x2="297" y2="198" class="pipe-cold" stroke-width="5"/>
+      <line x1="297" y1="180" x2="297" y2="198" class="pipe-flow"/>
+
+      <!-- Pipe: Filter out right -->
+      <line x1="330" y1="224" x2="380" y2="224" class="pipe-cold" stroke-width="6"/>
+      <line x1="330" y1="224" x2="380" y2="224" class="pipe-flow"/>
+      <line x1="380" y1="224" x2="380" y2="290" class="pipe-cold" stroke-width="6"/>
+      <line x1="380" y1="224" x2="380" y2="290" class="pipe-flow"/>
+
+      <!-- UV / Chlorination unit -->
+      <rect x="210" y="258" width="110" height="28" fill="#060f1a" stroke="#0e3d5c" stroke-width="1.5" rx="12"/>
+      <ellipse cx="227" cy="272" rx="14" ry="10" fill="rgba(120,0,200,0.2)" stroke="rgba(160,0,255,0.5)" stroke-width="1.5"/>
+      <text x="265" y="276" text-anchor="middle" style="font-family:'Orbitron',monospace;font-size:8px;fill:rgba(180,100,255,0.9);letter-spacing:1px">UV / CHLOR</text>
+      <text x="265" y="295" text-anchor="middle" class="device-label">DISINFECTION UNIT</text>
+
+      <!-- Pipe filter to UV -->
+      <line x1="265" y1="250" x2="265" y2="258" class="pipe-cold" stroke-width="5"/>
+      <line x1="265" y1="250" x2="265" y2="258" class="pipe-flow"/>
+
+      <!-- ===================== DISTRIBUTION ZONE ===================== -->
+
+      <!-- CLEAR WATER TANK T-02 -->
+      <rect x="397" y="50" width="75" height="105" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="399" y="52" width="71" height="2" fill="#0e5c8a" rx="1"/>
+      <rect x="399" y="60" width="71" height="93" fill="rgba(0,120,210,0.4)" rx="2" class="glow-teal"/>
+      <rect x="399" y="58" width="71" height="4" fill="rgba(0,200,255,0.5)"/>
+      <text x="434" y="110" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:14px;fill:#00e5ff;font-weight:bold">91%</text>
+      <text x="434" y="126" text-anchor="middle" class="tank-label">T-02</text>
+      <text x="434" y="139" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">3,200 m³</text>
+      <text x="434" y="163" text-anchor="middle" class="device-label">CLEAR WATER TANK</text>
+
+      <!-- Pipe from filter area to T-02 -->
+      <line x1="380" y1="100" x2="397" y2="100" class="pipe-cold" stroke-width="6"/>
+      <line x1="380" y1="100" x2="397" y2="100" class="pipe-flow"/>
+      <line x1="380" y1="100" x2="380" y2="224" class="pipe-cold" stroke-width="6"/>
+
+      <!-- Distribution Pumps P-02 & P-03 -->
+      <!-- P-02 -->
+      <g class="glow-green">
+        <circle cx="434" cy="220" r="18" fill="#050d14" stroke="#005a30" stroke-width="2"/>
+        <g class="pump-body-2" style="transform-origin:434px 220px">
+          <line x1="434" y1="205" x2="434" y2="215" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="434" y1="225" x2="434" y2="235" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="419" y1="220" x2="429" y2="220" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="439" y1="220" x2="449" y2="220" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="424" y1="209" x2="430" y2="215" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="438" y1="225" x2="444" y2="231" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="444" y1="209" x2="438" y2="215" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="430" y1="225" x2="424" y2="231" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+        </g>
+        <circle cx="434" cy="220" r="5" fill="#00ff88"/>
+      </g>
+      <text x="434" y="247" text-anchor="middle" class="device-label">P-02</text>
+      <text x="434" y="257" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00ff88">110kW RUN</text>
+
+      <!-- P-03 (standby) -->
+      <circle cx="530" cy="220" r="18" fill="#050d14" stroke="#2a4a2a" stroke-width="1.5"/>
+      <circle cx="530" cy="220" r="5" fill="#4a4a4a"/>
+      <text x="530" y="247" text-anchor="middle" class="device-label">P-03</text>
+      <text x="530" y="257" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a4a4a">STANDBY</text>
+
+      <!-- Pipe T-02 down to P-02 -->
+      <line x1="434" y1="155" x2="434" y2="202" class="pipe-cold" stroke-width="6"/>
+      <line x1="434" y1="155" x2="434" y2="202" class="pipe-flow"/>
+
+      <!-- Manifold pipe right -->
+      <line x1="452" y1="220" x2="540" y2="220" stroke="#0a5c8a" stroke-width="8" fill="none"/>
+      <line x1="452" y1="220" x2="548" y2="220" class="pipe-flow"/>
+
+      <!-- PRESSURE VESSEL / HEADER -->
+      <rect x="553" y="195" width="22" height="50" fill="#070f1a" stroke="#0e3d5c" stroke-width="2" rx="8"/>
+      <text x="564" y="265" text-anchor="middle" class="device-label">PRV-01</text>
+
+      <!-- Distribution header pipe going right -->
+      <line x1="548" y1="220" x2="580" y2="220" class="pipe-cold" stroke-width="6"/>
+      <line x1="548" y1="220" x2="580" y2="220" class="pipe-flow"/>
+      <line x1="575" y1="220" x2="575" y2="270" class="pipe-cold" stroke-width="6"/>
+      <line x1="575" y1="220" x2="575" y2="270" class="pipe-flow"/>
+
+      <!-- Pressure Transmitter PT-01 -->
+      <rect x="543" y="270" width="40" height="22" class="sensor-box" rx="2"/>
+      <text x="563" y="280" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">PT-01</text>
+      <text x="563" y="290" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:10px;fill:#00e5ff" id="svg-pt01bar">3.8 bar</text>
+
+      <!-- PROCESS TANK T-03 -->
+      <rect x="397" y="300" width="75" height="90" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="399" y="302" width="71" height="2" fill="#0e5c8a" rx="1"/>
+      <rect x="399" y="343" width="71" height="45" fill="rgba(0,100,180,0.3)" rx="2"/>
+      <rect x="399" y="341" width="71" height="4" fill="rgba(0,180,255,0.35)"/>
+      <text x="434" y="360" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:13px;fill:#00e5ff;font-weight:bold">55%</text>
+      <text x="434" y="373" text-anchor="middle" class="tank-label">T-03</text>
+      <text x="434" y="385" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">1,500 m³</text>
+      <text x="434" y="400" text-anchor="middle" class="device-label">PROCESS WATER</text>
+
+      <!-- Pipe to T-03 -->
+      <line x1="434" y1="270" x2="434" y2="300" class="pipe-cold" stroke-width="6"/>
+      <line x1="434" y1="270" x2="434" y2="300" class="pipe-flow"/>
+
+      <!-- ===================== PROCESS ZONE ===================== -->
+
+      <!-- Cooling Tower CT-01 -->
+      <g>
+        <rect x="605" y="40" width="70" height="80" fill="#060f1a" stroke="#1a5c7c" stroke-width="2" rx="4"/>
+        <!-- Top opening -->
+        <ellipse cx="640" cy="40" rx="35" ry="8" fill="#071825" stroke="#1a5c7c" stroke-width="1.5"/>
+        <!-- Fan -->
+        <g style="animation: pumpSpin 2s linear infinite; transform-origin: 640px 40px">
+          <ellipse cx="640" cy="40" rx="22" ry="6" fill="rgba(0,200,255,0.1)" stroke="#007aaa" stroke-width="1"/>
+          <line x1="618" y1="40" x2="662" y2="40" stroke="#007aaa" stroke-width="2" stroke-linecap="round"/>
+          <line x1="640" y1="18" x2="640" y2="62" stroke="#007aaa" stroke-width="2" stroke-linecap="round"/>
+        </g>
+        <!-- Water fills -->
+        <rect x="607" y="90" width="66" height="28" fill="rgba(0,100,200,0.3)" rx="2"/>
+        <!-- Evaporation particles -->
+        <circle cx="620" cy="55" r="2" fill="rgba(0,200,255,0.4)" style="animation:pulse 1.5s infinite"/>
+        <circle cx="640" cy="48" r="1.5" fill="rgba(0,200,255,0.3)" style="animation:pulse 2s 0.3s infinite"/>
+        <circle cx="658" cy="58" r="2" fill="rgba(0,200,255,0.4)" style="animation:pulse 1.8s 0.6s infinite"/>
+        <text x="640" y="75" text-anchor="middle" class="tank-label">CT-01</text>
+        <text x="640" y="132" text-anchor="middle" class="device-label">COOLING TOWER</text>
+      </g>
+
+      <!-- Heat Exchanger HX-01 -->
+      <g>
+        <rect x="605" y="155" width="70" height="55" fill="#060f1a" stroke="#1a3c5c" stroke-width="2" rx="4"/>
+        <!-- Plates -->
+        <line x1="618" y1="162" x2="618" y2="203" stroke="#1a4a6a" stroke-width="2"/>
+        <line x1="625" y1="162" x2="625" y2="203" stroke="#1a4a6a" stroke-width="2"/>
+        <line x1="632" y1="162" x2="632" y2="203" stroke="#7a2200" stroke-width="2"/>
+        <line x1="639" y1="162" x2="639" y2="203" stroke="#7a2200" stroke-width="2"/>
+        <line x1="646" y1="162" x2="646" y2="203" stroke="#1a4a6a" stroke-width="2"/>
+        <line x1="653" y1="162" x2="653" y2="203" stroke="#1a4a6a" stroke-width="2"/>
+        <line x1="660" y1="162" x2="660" y2="203" stroke="#7a2200" stroke-width="2"/>
+        <text x="640" y="145" text-anchor="middle" class="device-label">HX-01</text>
+        <text x="640" y="220" text-anchor="middle" class="device-label">HEAT EXCHANGER</text>
+      </g>
+
+      <!-- Process Booster Pump P-04 -->
+      <g class="glow-green">
+        <circle cx="640" cy="270" r="16" fill="#050d14" stroke="#005a30" stroke-width="1.5"/>
+        <g class="pump-body" style="transform-origin:640px 270px">
+          <line x1="640" y1="257" x2="640" y2="265" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="640" y1="275" x2="640" y2="283" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="627" y1="270" x2="635" y2="270" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="645" y1="270" x2="653" y2="270" stroke="#00ff88" stroke-width="2" stroke-linecap="round"/>
+          <line x1="631" y1="260" x2="636" y2="265" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="644" y1="275" x2="649" y2="280" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="649" y1="260" x2="644" y2="265" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="636" y1="275" x2="631" y2="280" stroke="#00ff88" stroke-width="1.5" stroke-linecap="round"/>
+        </g>
+        <circle cx="640" cy="270" r="4" fill="#00ff88"/>
+      </g>
+      <text x="640" y="293" text-anchor="middle" class="device-label">P-04</text>
+      <text x="640" y="303" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#00ff88">45kW RUN</text>
+
+      <!-- Process water tank T-04 (optional holding) -->
+      <rect x="605" y="330" width="70" height="70" fill="#060f1a" stroke="#0e3d5c" stroke-width="2" rx="3"/>
+      <rect x="607" y="332" width="66" height="38" fill="rgba(0,80,150,0.25)" rx="2"/>
+      <text x="640" y="355" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:11px;fill:#00e5ff;font-weight:bold">68%</text>
+      <text x="640" y="367" text-anchor="middle" class="tank-label">T-04</text>
+      <text x="640" y="409" text-anchor="middle" class="device-label">PROCESS SUMP</text>
+
+      <!-- Pipe from distribution to process -->
+      <line x1="575" y1="220" x2="605" y2="220" class="pipe-cold" stroke-width="6"/>
+      <line x1="575" y1="220" x2="605" y2="220" class="pipe-flow"/>
+      <line x1="597" y1="155" x2="605" y2="155" class="pipe-hot" stroke-width="4"/>
+
+      <!-- Pipe CT to HX -->
+      <line x1="640" y1="120" x2="640" y2="155" stroke="#0a5c8a" stroke-width="5"/>
+      <line x1="640" y1="120" x2="640" y2="155" class="pipe-flow-slow"/>
+
+      <!-- Pipe HX to P-04 -->
+      <line x1="640" y1="210" x2="640" y2="254" stroke="#0a5c8a" stroke-width="5"/>
+      <line x1="640" y1="210" x2="640" y2="254" class="pipe-flow-slow"/>
+
+      <!-- Pipe P-04 to T-04 -->
+      <line x1="640" y1="286" x2="640" y2="330" class="pipe-cold" stroke-width="5"/>
+      <line x1="640" y1="286" x2="640" y2="330" class="pipe-flow"/>
+
+      <!-- ===================== WASTEWATER ZONE ===================== -->
+
+      <!-- Wastewater Collection -->
+      <rect x="200" y="280" width="130" height="60" fill="#060f1a" stroke="#3a2000" stroke-width="2" rx="3"/>
+      <rect x="202" y="282" width="126" height="30" fill="rgba(80,50,10,0.3)" rx="2"/>
+      <text x="265" y="300" text-anchor="middle" style="font-family:'Orbitron',monospace;font-size:9px;fill:rgba(200,150,50,0.8);letter-spacing:1px">WASTEWATER</text>
+      <text x="265" y="314" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:10px;fill:#ffe600;font-weight:bold">42%</text>
+      <text x="265" y="350" text-anchor="middle" class="device-label">COLLECTION SUMP</text>
+
+      <!-- Sludge arrow from sedim -->
+      <line x1="297" y1="180" x2="297" y2="245" stroke="#4a3010" stroke-width="3" stroke-dasharray="5 5"/>
+      <line x1="297" y1="245" x2="265" y2="280" stroke="#4a3010" stroke-width="3" stroke-dasharray="5 5"/>
+      <text x="312" y="230" class="device-label" style="fill:#4a3010">SLUDGE</text>
+
+      <!-- Wastewater Pump P-05 -->
+      <circle cx="265" cy="380" r="14" fill="#050d14" stroke="#4a2000" stroke-width="1.5"/>
+      <circle cx="265" cy="380" r="4" fill="#ff8c00"/>
+      <text x="265" y="402" text-anchor="middle" class="device-label">P-05</text>
+      <text x="265" y="412" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#ff8c00">22kW RUN</text>
+
+      <!-- Pipe sump to P-05 -->
+      <line x1="265" y1="340" x2="265" y2="366" stroke="#4a3010" stroke-width="4"/>
+      <line x1="265" y1="340" x2="265" y2="366" class="pipe-flow-waste"/>
+
+      <!-- Pipe out to treatment (recycle arrow) -->
+      <line x1="265" y1="394" x2="265" y2="450" stroke="#4a3010" stroke-width="4"/>
+      <line x1="265" y1="450" x2="195" y2="450" stroke="#4a3010" stroke-width="4"/>
+      <line x1="195" y1="450" x2="195" y2="370" stroke="#4a3010" stroke-width="4"/>
+      <text x="230" y="462" text-anchor="middle" class="device-label" style="fill:#4a3010">RECYCLE / DRAIN</text>
+
+      <!-- ===================== FIRE SYSTEM ZONE ===================== -->
+
+      <!-- Fire Reserve Tank -->
+      <rect x="765" y="40" width="80" height="100" fill="#060f1a" stroke="#1a3c5c" stroke-width="2" rx="3"/>
+      <rect x="767" y="42" width="76" height="2" fill="#0e5c8a" rx="1"/>
+      <rect x="767" y="44" width="76" height="94" fill="rgba(0,80,180,0.45)" rx="2" class="glow-teal"/>
+      <rect x="767" y="42" width="76" height="4" fill="rgba(0,200,255,0.5)"/>
+      <text x="805" y="95" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:14px;fill:#00e5ff;font-weight:bold">100%</text>
+      <text x="805" y="112" text-anchor="middle" class="tank-label">FIRE RES</text>
+      <text x="805" y="125" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">5,000 m³</text>
+      <text x="805" y="154" text-anchor="middle" class="device-label">FIRE RESERVE TANK</text>
+
+      <!-- Jockey Pump -->
+      <circle cx="805" cy="200" r="14" fill="#050d14" stroke="#005a30" stroke-width="1.5"/>
+      <circle cx="805" cy="200" r="4" fill="#00ff88"/>
+      <text x="805" y="222" text-anchor="middle" class="device-label">JP-01</text>
+      <text x="805" y="232" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:7px;fill:#00ff88">JOCKEY RUN</text>
+
+      <!-- Fire Pump -->
+      <circle cx="805" cy="280" r="16" fill="#050d14" stroke="#3a0000" stroke-width="1.5"/>
+      <circle cx="805" cy="280" r="5" fill="#4a0000"/>
+      <text x="805" y="303" text-anchor="middle" class="device-label">FP-01</text>
+      <text x="805" y="313" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:7px;fill:#4a4a4a" id="fire-pump-status">FIRE STANDBY</text>
+
+      <!-- Fire Hydrant connections -->
+      <line x1="805" y1="155" x2="805" y2="186" class="pipe-cold" stroke-width="5"/>
+      <line x1="805" y1="214" x2="805" y2="264" class="pipe-cold" stroke-width="5"/>
+      <line x1="805" y1="296" x2="805" y2="450" stroke="#3a0000" stroke-width="4"/>
+
+      <!-- Sprinkler heads -->
+      <rect x="790" y="360" width="30" height="14" fill="#071018" stroke="#2a0000" stroke-width="1" rx="3"/>
+      <text x="805" y="371" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#3a1a1a">SPRINK</text>
+
+      <!-- Fire hydrant connections to dist -->
+      <line x1="760" y1="220" x2="765" y2="220" class="pipe-cold" stroke-width="5"/>
+      <line x1="765" y1="220" x2="765" y2="95" class="pipe-cold" stroke-width="5"/>
+      <line x1="765" y1="95" x2="765" y2="95" class="pipe-cold" stroke-width="5"/>
+
+      <!-- ===================== SENSORS / INSTRUMENTS ===================== -->
+
+      <!-- Flow meter FT-202 on main dist line -->
+      <rect x="560" y="200" width="36" height="20" class="sensor-box" rx="2"/>
+      <text x="578" y="209" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">FT-202</text>
+      <text x="578" y="219" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#00e5ff" id="svg-ft202">248 m³/h</text>
+
+      <!-- Temperature sensor on HX -->
+      <rect x="678" y="175" width="34" height="20" class="sensor-box" rx="2"/>
+      <text x="695" y="184" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">TT-01</text>
+      <text x="695" y="194" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#ff8c00" id="svg-tt01">42.3°C</text>
+
+      <!-- Level sensor T-02 -->
+      <rect x="476" y="62" width="34" height="20" class="sensor-box" rx="2"/>
+      <text x="493" y="71" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">LT-02</text>
+      <text x="493" y="81" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#00ff88" id="svg-lt02">91.2%</text>
+
+      <!-- Level sensor T-03 -->
+      <rect x="476" y="310" width="34" height="20" class="sensor-box" rx="2"/>
+      <text x="493" y="319" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">LT-03</text>
+      <text x="493" y="329" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#ffe600" id="svg-lt03">55.1%</text>
+
+      <!-- pH sensor -->
+      <rect x="340" y="230" width="34" height="20" class="sensor-box" rx="2"/>
+      <text x="357" y="239" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#4a7a9a">AT-01</text>
+      <text x="357" y="249" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:9px;fill:#00ff88" id="svg-at01">pH 7.24</text>
+
+      <!-- Alarm indicator -->
+      <rect x="432" y="163" width="38" height="18" fill="rgba(255,60,90,0.1)" stroke="rgba(255,60,90,0.5)" stroke-width="1" rx="2" class="alert-flash"/>
+      <text x="451" y="175" text-anchor="middle" style="font-family:'Share Tech Mono',monospace;font-size:8px;fill:#ff3c5a" class="alert-flash">⚠ HIGH</text>
+
+      <!-- Title of diagram -->
+      <text x="450" y="500" text-anchor="middle" style="font-family:'Orbitron',monospace;font-size:9px;fill:rgba(0,200,255,0.2);letter-spacing:3px">FACTORY WATER TREATMENT &amp; DISTRIBUTION — P&amp;ID SCHEMATIC</text>
+
+    </svg>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="rpanel-section">
+      <div class="rpanel-title">◈ ACTIVE DEVICES</div>
+
+      <div class="device-card">
+        <div class="device-card-header">
+          <div class="device-name">P-01</div>
+          <div class="device-status run" id="p01-status">RUN</div>
+        </div>
+        <div class="device-detail"><span>Speed</span><span id="p1-spd"><span id="p01-rpm">1,480 rpm</span></span></div>
+        <div class="device-detail"><span>Power</span><span>75.2 kW</span></div>
+        <div class="device-detail"><span>Current</span><span>148 A</span></div>
+        <div class="device-detail"><span>Temp</span><span>64°C</span></div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">
+          <div class="device-name">P-02</div>
+          <div class="device-status run" id="p02-status">RUN</div>
+        </div>
+        <div class="device-detail"><span>Speed</span><span id="p02-rpm">1,490 rpm</span></div>
+        <div class="device-detail"><span>Power</span><span>110 kW</span></div>
+        <div class="device-detail"><span>Current</span><span>218 A</span></div>
+        <div class="device-detail"><span>Temp</span><span>71°C</span></div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">
+          <div class="device-name">P-03</div>
+          <div class="device-status stop" id="p03-status">STBY</div>
+        </div>
+        <div class="device-detail"><span>Speed</span><span id="p03-rpm">0 rpm</span></div>
+        <div class="device-detail"><span>Power</span><span>0 kW</span></div>
+        <div class="device-detail"><span>Last run</span><span>2h ago</span></div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">
+          <div class="device-name">P-04</div>
+          <div class="device-status run" id="p04-status">RUN</div>
+        </div>
+        <div class="device-detail"><span>Speed</span><span id="p04-rpm">980 rpm</span></div>
+        <div class="device-detail"><span>Power</span><span>45 kW</span></div>
+        <div class="device-detail"><span>Flow</span><span>82 m³/h</span></div>
+      </div>
+
+      <div class="device-card">
+        <div class="device-card-header">
+          <div class="device-name">CT-01</div>
+          <div class="device-status run">RUN</div>
+        </div>
+        <div class="device-detail"><span>Inlet T</span><span id="ct-in-disp">52°C</span></div>
+        <div class="device-detail"><span>Outlet T</span><span id="ct-out-disp">32°C</span></div>
+        <div class="device-detail"><span>ΔT</span><span style="color:var(--teal)" id="ct-dt-disp">20°C</span></div>
+      </div>
+    </div>
+
+    <div class="rpanel-section">
+      <div class="rpanel-title">◈ VALVE STATUS</div>
+
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div class="device-detail"><span>VLV-01 INLET</span><span style="color:var(--green)">● OPEN</span></div>
+        <div class="device-detail"><span>VLV-02 BYPASS</span><span style="color:var(--red)">● SHUT</span></div>
+        <div class="device-detail"><span>VLV-03 DIST</span><span style="color:var(--green)">● OPEN</span></div>
+        <div class="device-detail"><span>VLV-04 FIRE</span><span style="color:var(--green)">● OPEN</span></div>
+        <div class="device-detail"><span>VLV-05 DRAIN</span><span style="color:var(--yellow)">● PARTIAL</span></div>
+        <div class="device-detail"><span>VLV-06 WW</span><span style="color:var(--green)">● OPEN</span></div>
+        <div class="device-detail"><span>VLV-07 PROC</span><span style="color:var(--green)">● OPEN</span></div>
+        <div class="device-detail"><span>VLV-08 BKWSH</span><span style="color:var(--red)">● SHUT</span></div>
+      </div>
+    </div>
+
+    <div class="rpanel-section">
+      <div class="rpanel-title">◈ ENERGY</div>
+      <div class="kpi-row"><span class="kpi-label">TOTAL POWER</span><span class="kpi-val teal" id="energy-power">248 kW</span></div>
+      <div class="kpi-row"><span class="kpi-label">TODAY kWh</span><span class="kpi-val teal" id="energy-kwh">1,842</span></div>
+      <div class="kpi-row"><span class="kpi-label">SPECIFIC E.</span><span class="kpi-val green" id="energy-spec">0.42 kWh/m³</span></div>
+      <div class="kpi-row"><span class="kpi-label">POWER FCTR</span><span class="kpi-val green">0.93</span></div>
+    </div>
+  </div><!-- end right-panel -->
+
+  </div><!-- end twin-content -->
+
+</div><!-- end main -->
+
+<!-- STATUS BAR -->
+<div class="statusbar">
+  <div class="item">PLC: <b>ONLINE</b></div>
+  <div class="item">SCAN: <b>500ms</b></div>
+  <div class="item">DB CONN: <b>ACTIVE</b></div>
+  <div class="item">HISTORIAN: <b>WRITING</b></div>
+  <div class="item">ALARMS: <b id="alarm-count-bar" style="color:var(--yellow)">3 ACTIVE</b></div>
+  <div class="item" style="margin-left:auto">BUILD: v4.2.1 &nbsp;|&nbsp; AQUATWIN SCADA &nbsp;|&nbsp; © FACTORY SYSTEMS</div>
+</div>
+
+<script>
+  // ============================================================
+  // SIMULATION STATE — single source of truth
+  // ============================================================
+  const SIM = {
+    t1: 78, t2: 91, t3: 55, t4: 68, fire: 100, ww: 42,
+    intakeFlow: 248, distFlow: 248, pressure: 3.8,
+    ph: 7.2, turbidity: 0.18, chlorine: 0.52, hxTemp: 42.3,
+    ctIn: 52, ctOut: 32, rawTemp: 18,
+    power: 248, specE: 0.42, dose: 45,
+    lowAlarm: 20, highAlarm: 95, presAlarm: 5.5, phLow: 6.5,
+    p01: true, p02: true, p03: false, p04: true, p05: true,
+    uv: true, sf: true, ct: true, jp: true, fp: false,
+    vlv01: true, fireEvent: false,
+    noise: true, simSpeed: 2000,
+    // drift state
+    _t1d: 0, _t3d: 0, _t4d: 0, _wwd: 0
+  };
+
+  let simInterval = null;
+
+  // ============================================================
+  // TAB SWITCHING
+  // ============================================================
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+
+    const cfg = document.getElementById('config-panel');
+    const twin = document.getElementById('twin-content');
+
+    if (tab === 'config') {
+      cfg.classList.add('active');
+      twin.style.display = 'none';
+      syncConfigUI();
+    } else {
+      cfg.classList.remove('active');
+      twin.style.display = 'flex';
+    }
+  }
+
+  function applyAndClose() {
+    switchTab('twin');
+  }
+
+  // ============================================================
+  // CONFIG UI → SIM STATE SYNC
+  // ============================================================
+  function updateSlider(key, val, unit) {
+    const numVal = parseFloat(val);
+    document.getElementById('cfg-' + key + '-val').textContent = numVal + unit;
+    // Map slider keys to SIM properties
+    const map = {
+      't1': 't1', 't2': 't2', 't3': 't3', 't4': 't4',
+      'fire': 'fire', 'ww': 'ww',
+      'intake-flow': 'intakeFlow', 'dist-flow': 'distFlow',
+      'ph': 'ph', 'turbidity': 'turbidity', 'chlorine': 'chlorine',
+      'hx-temp': 'hxTemp', 'ct-in': 'ctIn', 'ct-out': 'ctOut',
+      'raw-temp': 'rawTemp', 'power': 'power', 'spec-e': 'specE',
+      'dose': 'dose', 'low-alarm': 'lowAlarm', 'high-alarm': 'highAlarm',
+      'pres-alarm': 'presAlarm', 'ph-low': 'phLow'
+    };
+    const simKey = map[key];
+    if (simKey) {
+      SIM[simKey] = key === 'pressure' ? numVal :
+                   key === 'ph' ? numVal / 10 :
+                   key === 'turbidity' ? numVal / 10 :
+                   key === 'chlorine' ? numVal / 10 :
+                   key === 'spec-e' ? numVal / 100 :
+                   key === 'pres-alarm' ? numVal / 10 :
+                   key === 'ph-low' ? numVal / 10 : numVal;
+    }
+    if (key === 'pressure') {
+      SIM.pressure = numVal / 10;
+      document.getElementById('cfg-pressure-val').textContent = (numVal / 10).toFixed(1) + ' bar';
+    }
+    refreshDiagramNow();
+    checkAlarms();
+  }
+
+  function updatePumpState(pump, on) {
+    SIM[pump] = on;
+    refreshDiagramNow();
+  }
+
+  function updateValve(vlv, open) {
+    SIM[vlv] = open;
+    refreshDiagramNow();
+  }
+
+  function updateUV(on) { SIM.uv = on; refreshDiagramNow(); }
+  function updateCT(on) { SIM.ct = on; refreshDiagramNow(); }
+
+  function updateFireEvent(on) {
+    SIM.fireEvent = on;
+    if (on) { SIM.fp = true; document.getElementById('cfg-fp').checked = true; }
+    refreshDiagramNow();
+    checkAlarms();
+  }
+
+  function updateFirePump(on) {
+    SIM.fp = on; refreshDiagramNow();
+  }
+
+  function updateSimSpeed(ms) {
+    SIM.simSpeed = parseInt(ms);
+    restartInterval();
+    const labels = {'4000':'0.5×','2000':'1×','1000':'2×','400':'5×'};
+    document.getElementById('cfg-sim-speed-val').textContent = labels[ms] || '1×';
+  }
+
+  function syncConfigUI() {
+    // Sync all sliders to current SIM state
+    const setSlider = (id, val) => {
+      const el = document.getElementById('cfg-' + id);
+      if (el) el.value = val;
+    };
+    setSlider('t1', SIM.t1);
+    setSlider('t2', SIM.t2);
+    setSlider('t3', SIM.t3);
+    setSlider('t4', SIM.t4);
+    setSlider('fire', SIM.fire);
+    setSlider('ww', SIM.ww);
+    setSlider('intake-flow', SIM.intakeFlow);
+    setSlider('dist-flow', SIM.distFlow);
+    setSlider('pressure', Math.round(SIM.pressure * 10));
+    setSlider('ph', Math.round(SIM.ph * 10));
+    setSlider('turbidity', Math.round(SIM.turbidity * 10));
+    setSlider('chlorine', Math.round(SIM.chlorine * 10));
+    setSlider('ct-in', SIM.ctIn);
+    setSlider('ct-out', SIM.ctOut);
+    setSlider('hx-temp', SIM.hxTemp);
+    setSlider('raw-temp', SIM.rawTemp);
+    setSlider('power', SIM.power);
+    setSlider('spec-e', Math.round(SIM.specE * 100));
+    setSlider('dose', SIM.dose);
+    setSlider('low-alarm', SIM.lowAlarm);
+    setSlider('high-alarm', SIM.highAlarm);
+    setSlider('pres-alarm', Math.round(SIM.presAlarm * 10));
+    setSlider('ph-low', Math.round(SIM.phLow * 10));
+    // Sync val displays
+    document.getElementById('cfg-t1-val').textContent = Math.round(SIM.t1) + '%';
+    document.getElementById('cfg-t2-val').textContent = Math.round(SIM.t2) + '%';
+    document.getElementById('cfg-t3-val').textContent = Math.round(SIM.t3) + '%';
+    document.getElementById('cfg-t4-val').textContent = Math.round(SIM.t4) + '%';
+    document.getElementById('cfg-fire-val').textContent = Math.round(SIM.fire) + '%';
+    document.getElementById('cfg-ww-val').textContent = Math.round(SIM.ww) + '%';
+    document.getElementById('cfg-intake-flow-val').textContent = Math.round(SIM.intakeFlow) + ' m³/h';
+    document.getElementById('cfg-dist-flow-val').textContent = Math.round(SIM.distFlow) + ' m³/h';
+    document.getElementById('cfg-pressure-val').textContent = SIM.pressure.toFixed(1) + ' bar';
+    document.getElementById('cfg-ph-val').textContent = SIM.ph.toFixed(1) + ' pH';
+    document.getElementById('cfg-turbidity-val').textContent = SIM.turbidity.toFixed(2) + ' NTU';
+    document.getElementById('cfg-chlorine-val').textContent = SIM.chlorine.toFixed(2) + ' mg/L';
+    document.getElementById('cfg-ct-in-val').textContent = Math.round(SIM.ctIn) + '°C';
+    document.getElementById('cfg-ct-out-val').textContent = Math.round(SIM.ctOut) + '°C';
+    document.getElementById('cfg-hx-temp-val').textContent = SIM.hxTemp.toFixed(1) + '°C';
+    document.getElementById('cfg-raw-temp-val').textContent = Math.round(SIM.rawTemp) + '°C';
+    document.getElementById('cfg-power-val').textContent = Math.round(SIM.power) + ' kW';
+    document.getElementById('cfg-spec-e-val').textContent = SIM.specE.toFixed(2) + ' kWh/m³';
+    document.getElementById('cfg-dose-val').textContent = Math.round(SIM.dose) + '%';
+    document.getElementById('cfg-low-alarm-val').textContent = SIM.lowAlarm + '%';
+    document.getElementById('cfg-high-alarm-val').textContent = SIM.highAlarm + '%';
+    document.getElementById('cfg-pres-alarm-val').textContent = SIM.presAlarm.toFixed(1) + ' bar';
+    document.getElementById('cfg-ph-low-val').textContent = SIM.phLow.toFixed(1) + ' pH';
+    // Toggles
+    document.getElementById('cfg-p01').checked = SIM.p01;
+    document.getElementById('cfg-p02').checked = SIM.p02;
+    document.getElementById('cfg-p03').checked = SIM.p03;
+    document.getElementById('cfg-p04').checked = SIM.p04;
+    document.getElementById('cfg-p05').checked = SIM.p05;
+    document.getElementById('cfg-uv').checked = SIM.uv;
+    document.getElementById('cfg-sf').checked = SIM.sf;
+    document.getElementById('cfg-ct').checked = SIM.ct;
+    document.getElementById('cfg-jp').checked = SIM.jp;
+    document.getElementById('cfg-fp').checked = SIM.fp;
+    document.getElementById('cfg-vlv01').checked = SIM.vlv01;
+    document.getElementById('cfg-fire-event').checked = SIM.fireEvent;
+    document.getElementById('cfg-noise').checked = SIM.noise;
+  }
+
+  // ============================================================
+  // SCENARIO PRESETS
+  // ============================================================
+  function loadPreset(name) {
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active-preset'));
+    document.getElementById('preset-' + name).classList.add('active-preset');
+
+    const presets = {
+      normal: { t1:78, t2:91, t3:55, t4:68, fire:100, ww:42, intakeFlow:248, distFlow:248,
+                pressure:3.8, ph:7.2, turbidity:0.18, chlorine:0.52, ctIn:52, ctOut:32,
+                hxTemp:42, rawTemp:18, power:248, specE:0.42,
+                p01:true, p02:true, p03:false, p04:true, p05:true,
+                uv:true, sf:true, ct:true, jp:true, fp:false, fireEvent:false,
+                label:'NORMAL OPS' },
+      peak:   { t1:58, t2:72, t3:45, t4:80, fire:100, ww:65, intakeFlow:380, distFlow:420,
+                pressure:5.1, ph:7.1, turbidity:0.35, chlorine:0.65, ctIn:68, ctOut:42,
+                hxTemp:58, rawTemp:22, power:410, specE:0.58,
+                p01:true, p02:true, p03:true, p04:true, p05:true,
+                uv:true, sf:true, ct:true, jp:true, fp:false, fireEvent:false,
+                label:'PEAK DEMAND' },
+      fire:   { t1:75, t2:88, t3:50, t4:65, fire:65, ww:38, intakeFlow:260, distFlow:310,
+                pressure:6.2, ph:7.3, turbidity:0.22, chlorine:0.55, ctIn:50, ctOut:31,
+                hxTemp:40, rawTemp:18, power:295, specE:0.48,
+                p01:true, p02:true, p03:true, p04:true, p05:true,
+                uv:true, sf:true, ct:true, jp:true, fp:true, fireEvent:true,
+                label:'FIRE EVENT' },
+      drought:{ t1:22, t2:45, t3:30, t4:40, fire:95, ww:28, intakeFlow:95, distFlow:140,
+                pressure:2.4, ph:7.5, turbidity:0.55, chlorine:0.40, ctIn:38, ctOut:26,
+                hxTemp:35, rawTemp:29, power:145, specE:0.68,
+                p01:true, p02:true, p03:false, p04:true, p05:true,
+                uv:true, sf:true, ct:true, jp:true, fp:false, fireEvent:false,
+                label:'LOW INTAKE' },
+      maintenance:{ t1:82, t2:95, t3:60, t4:70, fire:100, ww:35, intakeFlow:120, distFlow:110,
+                pressure:2.8, ph:7.1, turbidity:0.25, chlorine:0.48, ctIn:44, ctOut:28,
+                hxTemp:38, rawTemp:20, power:110, specE:0.52,
+                p01:true, p02:true, p03:false, p04:false, p05:false,
+                uv:false, sf:false, ct:false, jp:true, fp:false, fireEvent:false,
+                label:'MAINTENANCE' },
+      alarm:  { t1:18, t2:96, t3:14, t4:92, fire:88, ww:88, intakeFlow:55, distFlow:80,
+                pressure:6.8, ph:6.2, turbidity:1.8, chlorine:0.12, ctIn:74, ctOut:55,
+                hxTemp:69, rawTemp:32, power:380, specE:0.88,
+                p01:true, p02:true, p03:true, p04:true, p05:true,
+                uv:false, sf:true, ct:true, jp:true, fp:false, fireEvent:false,
+                label:'MULTI-ALARM' }
+    };
+
+    const p = presets[name];
+    if (!p) return;
+    Object.keys(p).forEach(k => { if (k !== 'label') SIM[k] = p[k]; });
+    document.getElementById('cfg-scenario-name').textContent = p.label;
+    syncConfigUI();
+    refreshDiagramNow();
+    checkAlarms();
+  }
+
+  function resetDefaults() { loadPreset('normal'); }
+
+  // ============================================================
+  // REFRESH DIAGRAM FROM SIM STATE
+  // ============================================================
+  function refreshDiagramNow() {
+    const noise = SIM.noise ? 1 : 0;
+    const n = (v, range) => v + (Math.random() - 0.5) * range * 2 * noise;
+
+    // KPI sidebar
+    const flowDisp = n(SIM.distFlow, 3);
+    const presDisp = n(SIM.pressure, 0.05);
+    setText('kpi-flow', flowDisp.toFixed(1) + ' m³/h');
+    setText('kpi-pres', presDisp.toFixed(2) + ' bar');
+
+    // Tank bars (sidebar)
+    setTank('t1', SIM.t1);
+    setTank('t2', SIM.t2);
+    setTank('t3', SIM.t3);
+    setTank('t4', SIM.t4);
+
+    // Wastewater in sidebar bar
+    const t4bar = document.getElementById('t4-bar');
+    const t4pct = document.getElementById('t4-pct');
+    if (t4bar) { t4bar.style.width = SIM.ww + '%'; }
+    if (t4pct) { t4pct.textContent = Math.round(SIM.ww) + '%'; }
+
+    // Pump P-01 RPM
+    const p1rpmEl = document.getElementById('p1-spd');
+    if (p1rpmEl) p1rpmEl.textContent = SIM.p01 ? Math.round(n(1465, 30)) + ' rpm' : '0 rpm';
+
+    // SVG sensor labels — update inline text nodes via attribute
+    updateSVGText('ft202', Math.round(n(SIM.distFlow, 4)) + ' m³/h');
+    updateSVGText('tt01', n(SIM.hxTemp, 0.5).toFixed(1) + '°C');
+    updateSVGText('lt02', n(SIM.t2, 0.3).toFixed(1) + '%');
+    updateSVGText('lt03', n(SIM.t3, 0.3).toFixed(1) + '%');
+    updateSVGText('at01', 'pH ' + n(SIM.ph, 0.05).toFixed(2));
+    updateSVGText('pt01bar', n(SIM.pressure, 0.05).toFixed(2) + ' bar');
+
+    // Energy panel
+    setText('energy-power', Math.round(n(SIM.power, 4)) + ' kW');
+    setText('energy-kwh', Math.round(SIM.power * 7.4) + '');
+    setText('energy-spec', n(SIM.specE, 0.005).toFixed(2) + ' kWh/m³');
+
+    // Pump states in right panel
+    updatePumpCard('p01-status', 'p01-rpm', SIM.p01, Math.round(n(1465,30)), SIM.power * 0.3);
+    updatePumpCard('p02-status', 'p02-rpm', SIM.p02, Math.round(n(1490,25)), SIM.power * 0.44);
+    updatePumpCard('p03-status', 'p03-rpm', SIM.p03, Math.round(n(1490,25)), SIM.power * 0.44);
+    updatePumpCard('p04-status', 'p04-rpm', SIM.p04, Math.round(n(980,30)), SIM.power * 0.18);
+
+    // CT panel
+    setText('ct-in-disp', Math.round(n(SIM.ctIn,0.5)) + '°C');
+    setText('ct-out-disp', Math.round(n(SIM.ctOut,0.5)) + '°C');
+    setText('ct-dt-disp', (SIM.ctIn - SIM.ctOut).toFixed(0) + '°C');
+
+    // Fire system colors
+    const fireEl = document.getElementById('fire-pump-status');
+    if (fireEl) {
+      fireEl.textContent = SIM.fp ? 'FIRE RUN' : 'STANDBY';
+      fireEl.style.color = SIM.fp ? '#ff3c5a' : '#4a4a4a';
+    }
+
+    // Pipe animation speed (by modifying CSS animation-duration via style)
+    updatePipeSpeed();
+
+    checkAlarms();
+  }
+
+  function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  function setTank(id, pct) {
+    const pctEl = document.getElementById(id + '-pct');
+    const barEl = document.getElementById(id + '-bar');
+    if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+    if (barEl) barEl.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  }
+
+  function updateSVGText(id, val) {
+    const el = document.getElementById('svg-' + id);
+    if (el) el.textContent = val;
+  }
+
+  function updatePumpCard(statusId, rpmId, running, rpm, kw) {
+    const sEl = document.getElementById(statusId);
+    const rEl = document.getElementById(rpmId);
+    if (sEl) {
+      sEl.textContent = running ? 'RUN' : 'STBY';
+      sEl.className = 'device-status ' + (running ? 'run' : 'stop');
+    }
+    if (rEl) rEl.textContent = running ? rpm + ' rpm' : '0 rpm';
+  }
+
+  function updatePipeSpeed() {
+    // Flow animation speed linked to flow rate
+    const speedFactor = SIM.distFlow / 248;
+    const dur = (1.5 / speedFactor).toFixed(2) + 's';
+    const durSlow = (3 / speedFactor).toFixed(2) + 's';
+    document.querySelectorAll('.pipe-flow').forEach(el => {
+      if (SIM.p01 || SIM.p02) {
+        el.style.animationDuration = dur;
+        el.style.animationPlayState = 'running';
+      } else {
+        el.style.animationPlayState = 'paused';
+      }
+    });
+    document.querySelectorAll('.pipe-flow-slow').forEach(el => {
+      el.style.animationDuration = durSlow;
+      el.style.animationPlayState = SIM.ct ? 'running' : 'paused';
+    });
+  }
+
+  // ============================================================
+  // ALARM ENGINE
+  // ============================================================
+  function checkAlarms() {
+    const alarms = [];
+
+    if (SIM.t1 < SIM.lowAlarm) alarms.push({lv:'crit', msg:'T-01 LOW LEVEL: ' + Math.round(SIM.t1) + '%'});
+    if (SIM.t2 > SIM.highAlarm) alarms.push({lv:'warn', msg:'T-02 HIGH LEVEL: ' + Math.round(SIM.t2) + '%'});
+    if (SIM.t3 < SIM.lowAlarm) alarms.push({lv:'crit', msg:'T-03 LOW LEVEL: ' + Math.round(SIM.t3) + '%'});
+    if (SIM.pressure > SIM.presAlarm) alarms.push({lv:'crit', msg:'PRESSURE HIGH: ' + SIM.pressure.toFixed(1) + ' bar'});
+    if (SIM.ph < SIM.phLow) alarms.push({lv:'crit', msg:'pH LOW: ' + SIM.ph.toFixed(1)});
+    if (SIM.turbidity > 1.0) alarms.push({lv:'warn', msg:'TURBIDITY HIGH: ' + SIM.turbidity.toFixed(2) + ' NTU'});
+    if (SIM.ww > 85) alarms.push({lv:'warn', msg:'WASTEWATER SUMP HIGH: ' + Math.round(SIM.ww) + '%'});
+    if (SIM.fireEvent) alarms.push({lv:'crit', msg:'⚠ FIRE EVENT ACTIVE'});
+    if (!SIM.uv) alarms.push({lv:'warn', msg:'UV DISINFECTION OFFLINE'});
+    if (SIM.distFlow < 100) alarms.push({lv:'warn', msg:'LOW FLOW: ' + Math.round(SIM.distFlow) + ' m³/h'});
+
+    // Update sidebar alarm list
+    const alarmEl = document.getElementById('alarm-sidebar');
+    if (alarmEl) {
+      alarmEl.innerHTML = alarms.length === 0
+        ? '<div class="alarm-item"><div class="alarm-dot ok"></div><div class="alarm-text" style="color:var(--green)">ALL CLEAR</div></div>'
+        : alarms.slice(0, 5).map(a =>
+            `<div class="alarm-item">
+              <div class="alarm-dot ${a.lv}"></div>
+              <div class="alarm-text">${a.msg}</div>
+            </div>`).join('');
+    }
+
+    // Status bar alarm count
+    const countEl = document.getElementById('alarm-count');
+    if (countEl) countEl.textContent = alarms.length;
+    const cfgCount = document.getElementById('cfg-alarm-count');
+    if (cfgCount) cfgCount.textContent = alarms.length;
+
+    // Config alarm status summary
+    const cfgStatus = document.getElementById('cfg-alarm-status');
+    if (cfgStatus) {
+      if (alarms.length === 0) {
+        cfgStatus.innerHTML = '<span class="alarm-badge ok">✔ ALL CLEAR</span>';
+      } else {
+        cfgStatus.innerHTML = alarms.map(a =>
+          `<span class="alarm-badge ${a.lv}" style="display:block;margin-bottom:3px">${a.msg}</span>`
+        ).join('');
+      }
+    }
+
+    // Status bar
+    setText('alarm-count-bar', alarms.length + ' ACTIVE');
+    const barEl = document.getElementById('alarm-count-bar');
+    if (barEl) barEl.style.color = alarms.length === 0 ? 'var(--green)' : alarms.filter(a=>a.lv==='crit').length > 0 ? 'var(--red)' : 'var(--yellow)';
+  }
+
+  // ============================================================
+  // LIVE SIMULATION LOOP (drift engine)
+  // ============================================================
+  function simTick() {
+    if (!SIM.noise) { refreshDiagramNow(); return; }
+
+    const drift = (val, speed, min, max) => {
+      val += (Math.random() - 0.5) * speed;
+      return Math.min(max, Math.max(min, val));
+    };
+
+    // Tank level drift (inflow/outflow logic)
+    const p01factor = SIM.p01 ? 1 : 0;
+    const p02factor = SIM.p02 ? 1 : 0;
+    const p03factor = SIM.p03 ? 0.5 : 0;
+    const intakeNorm = SIM.intakeFlow / 248;
+    const distNorm = SIM.distFlow / 248;
+
+    SIM.t1 = drift(SIM.t1 + (intakeNorm * 0.08 - p01factor * 0.12), 0.1, 5, 100);
+    SIM.t2 = drift(SIM.t2 + (p01factor * 0.10 - (p02factor + p03factor) * 0.14) * distNorm, 0.08, 5, 100);
+    SIM.t3 = drift(SIM.t3 + ((p02factor) * 0.06 - 0.08), 0.12, 5, 100);
+    SIM.ww = drift(SIM.ww + (distNorm * 0.04 - (SIM.p05 ? 0.06 : 0)), 0.1, 5, 100);
+
+    // Pressure drift
+    SIM.pressure = drift(SIM.pressure, 0.02, 0.5, 9.9);
+
+    // Flow jitter
+    SIM.distFlow = drift(SIM.distFlow, 1.5, 10, 500);
+    SIM.intakeFlow = drift(SIM.intakeFlow, 1.0, 10, 400);
+
+    refreshDiagramNow();
+  }
+
+  function restartInterval() {
+    if (simInterval) clearInterval(simInterval);
+    simInterval = setInterval(simTick, SIM.simSpeed);
+  }
+
+  // ============================================================
+  // CLOCK
+  // ============================================================
+  function updateClock() {
+    const now = new Date();
+    const el = document.getElementById('clock');
+    if (el) el.textContent = now.toLocaleTimeString('en-US', {hour12: false});
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ============================================================
+  // INIT
+  // ============================================================
+  restartInterval();
+  refreshDiagramNow();
+</script>
+</body>
+</html>
