@@ -1,0 +1,3659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#07090f"/>
+<title>VetWard Mobile — Hospital Viewer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#07090f;--panel:#0b0f1c;--panel2:#0f1526;
+  --border:#1a2a45;--border2:#243550;
+  --cyan:#00d4ff;--cyan2:#0090b3;--cyan-dim:#003d52;
+  --green:#00e676;--yellow:#ffcc00;--red:#ff3d3d;--orange:#ff8c00;
+  --text:#c8d8f0;--muted:#3a5070;--muted2:#1e3050;
+  --font-mono:'Share Tech Mono',monospace;
+  --font-body:'Barlow',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font-body)}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px);pointer-events:none;z-index:9999}
+
+/* TOP BAR */
+#topbar{position:fixed;top:0;left:0;right:0;height:48px;background:rgba(7,9,15,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;z-index:200;backdrop-filter:blur(8px)}
+#tb-logo{padding:0 16px;font-family:var(--font-mono);font-size:13px;color:var(--cyan);letter-spacing:3px;border-right:1px solid var(--border);height:100%;display:flex;align-items:center;gap:8px;white-space:nowrap}
+#tb-logo span{color:var(--muted);font-size:9px}
+#tb-breadcrumb{padding:0 14px;font-family:var(--font-mono);font-size:11px;color:var(--muted);flex:1;display:flex;align-items:center;gap:6px;overflow:hidden}
+#tb-breadcrumb b{color:var(--cyan)}
+/* SEARCH */
+#search-wrap{display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--border);border-right:1px solid var(--border)}
+#search-input{background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:2px;outline:none;width:160px;transition:all .2s}
+#search-input:focus{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan-dim)}
+#search-input::placeholder{color:var(--muted)}
+#search-btn{background:var(--cyan-dim);border:1px solid var(--cyan);color:var(--cyan);font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:2px;cursor:pointer;letter-spacing:1px;white-space:nowrap}
+#search-btn:hover{background:var(--cyan);color:#000}
+#search-results{position:absolute;top:48px;right:180px;background:var(--panel);border:1px solid var(--border2);border-top:none;width:240px;max-height:200px;overflow-y:auto;z-index:300;display:none}
+.search-result-item{padding:8px 12px;font-family:var(--font-mono);font-size:10px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:6px}
+.search-result-item:hover{background:var(--cyan-dim);color:var(--cyan)}
+.search-result-item .sri-name{font-size:11px;color:var(--text)}
+.search-result-item .sri-loc{font-size:9px;color:var(--muted)}
+/* CONTROLS */
+#tb-controls{display:flex;align-items:center;gap:6px;padding:0 12px}
+.tbtn{background:transparent;border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:10px;padding:4px 10px;border-radius:2px;cursor:pointer;letter-spacing:1px;transition:all .15s;white-space:nowrap}
+.tbtn:hover,.tbtn.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.tbtn.danger{border-color:var(--red);color:var(--red)}
+.tbtn.danger:hover{background:rgba(255,61,61,.15)}
+#tb-clock{font-family:var(--font-mono);font-size:11px;color:var(--muted);padding:0 14px;border-left:1px solid var(--border);min-width:80px;white-space:nowrap}
+
+/* ALERT — now a notification bell in topbar */
+#tb-notif{position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:32px;border:1px solid var(--border2);border-radius:2px;cursor:pointer;color:var(--muted);font-size:15px;transition:border-color .3s,color .3s;margin-left:4px}
+#tb-notif:hover{border-color:var(--cyan);color:var(--cyan)}
+#tb-notif.alert{border-color:var(--red);color:var(--red)}
+/* Only the bell glyph blinks — keep border, badge, and dropdown stable/readable */
+#tb-notif-icon{display:inline-block;line-height:1}
+#tb-notif.alert #tb-notif-icon{animation:blink 1.2s infinite}
+#tb-notif-count{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;background:var(--red);color:#fff;font-family:var(--font-mono);font-size:9px;font-weight:700;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 4px}
+#tb-notif.alert #tb-notif-count{display:flex}
+/* Dropdown — must be readable, NO blinking inherited */
+#tb-notif-panel{position:absolute;top:44px;right:0;width:340px;max-height:420px;overflow-y:auto;background:rgba(5,7,12,.98);border:1px solid var(--red);border-radius:3px;z-index:300;display:none;backdrop-filter:blur(12px);animation:none !important}
+#tb-notif-panel.show{display:block}
+#tb-notif-panel *{animation:none}
+.notif-header{padding:8px 12px;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:10px;color:var(--red);letter-spacing:2px;display:flex;justify-content:space-between;align-items:center}
+.notif-item{padding:8px 12px;border-bottom:1px solid var(--muted2);cursor:pointer;font-family:var(--font-mono);font-size:10px;transition:background .15s;display:flex;gap:8px;align-items:flex-start;color:var(--text)}
+.notif-item:hover{background:rgba(255,61,61,.1)}
+/* Only the dot blinks — content is stable */
+.notif-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.notif-dot.crit{background:var(--red);animation:blink .9s infinite}
+.notif-dot.warn{background:var(--yellow);animation:blink 1.5s infinite}
+.notif-body{flex:1;animation:none}
+.notif-name{color:var(--text);font-weight:700;font-size:11px;margin-bottom:2px;animation:none}
+.notif-meta{color:var(--muted);font-size:9px;letter-spacing:.5px;animation:none}
+.notif-empty{padding:18px;text-align:center;font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* CANVAS */
+#canvas-wrap{position:fixed;inset:0;top:48px}
+#canvas-3d{display:block;width:100%;height:100%}
+
+/* BOTTOM NAV */
+#nav-bar{position:fixed;bottom:0;left:0;right:0;height:52px;background:rgba(7,9,15,.97);border-top:1px solid var(--border);display:flex;align-items:center;z-index:200;backdrop-filter:blur(8px)}
+.nav-section{display:flex;align-items:center;gap:8px;padding:0 12px;border-right:1px solid var(--border)}
+.nav-label{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px}
+.nav-select{background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:10px;padding:4px 8px;border-radius:2px;cursor:pointer;outline:none}
+.nav-select:focus{border-color:var(--cyan)}
+.nav-select option{background:#0b0f1c}
+#nav-stats{flex:1;display:flex;align-items:center;gap:16px;padding:0 14px;font-family:var(--font-mono);font-size:10px}
+.stat-item{display:flex;align-items:center;gap:5px;cursor:pointer}
+.stat-item:hover .stat-dot{transform:scale(1.4)}
+.stat-dot{width:6px;height:6px;border-radius:50%;transition:transform .2s}
+#nav-zoom{display:flex;align-items:center;gap:6px;padding:0 12px;border-left:1px solid var(--border)}
+
+/* SIDE PANEL */
+#side-panel{position:fixed;right:0;top:48px;bottom:52px;width:320px;background:rgba(7,9,15,.98);border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:170;transform:translateX(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1);backdrop-filter:blur(12px)}
+#side-panel.open{transform:translateX(0)}
+#sp-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+#sp-title{font-family:var(--font-mono);font-size:11px;color:var(--cyan);letter-spacing:2px}
+#sp-close{background:transparent;border:1px solid var(--border);color:var(--muted);width:24px;height:24px;border-radius:2px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+#sp-close:hover{border-color:var(--red);color:var(--red)}
+#sp-addr{padding:8px 14px;border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:10px;color:var(--muted);flex-shrink:0}
+#sp-addr b{color:var(--cyan)}
+#sp-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.sp-tab{flex:1;background:transparent;border:none;color:var(--muted);font-family:var(--font-mono);font-size:10px;padding:8px 4px;cursor:pointer;letter-spacing:1px;border-bottom:2px solid transparent;transition:all .2s}
+.sp-tab:hover{color:var(--text)}
+.sp-tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+#sp-body{flex:1;overflow-y:auto;padding:12px 12px}
+.sp-section{margin-bottom:12px}
+.sp-sec-title{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:8px}
+.vital-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--muted2)}
+.vital-key{font-size:10px;color:var(--muted);font-family:var(--font-mono)}
+.vital-val{font-size:12px;font-weight:600;font-family:var(--font-mono)}
+/* EDITABLE VITAL */
+.vital-edit-wrap{display:flex;align-items:center;gap:6px}
+.vital-edit-input{background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:2px 6px;border-radius:2px;width:80px;outline:none;text-align:right}
+.vital-edit-input:focus{border-color:var(--cyan)}
+.vital-edit-select{background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:10px;padding:2px 4px;border-radius:2px;outline:none}
+.vital-edit-select:focus{border-color:var(--cyan)}
+.vital-edit-select option{background:var(--panel)}
+.cond-block{background:rgba(0,0,0,.2);border:1px solid var(--border);border-radius:2px;padding:8px;margin-bottom:6px}
+.cond-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.cond-part-input{background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:10px;padding:3px 6px;border-radius:2px;outline:none;width:100%;margin-bottom:4px}
+.cond-part-input:focus{border-color:var(--cyan)}
+.cond-sev-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.sev-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:var(--font-mono);font-size:9px;padding:2px 8px;border-radius:2px;cursor:pointer;transition:all .15s}
+.sev-btn.active-1{border-color:var(--green);color:var(--green);background:rgba(0,230,118,.1)}
+.sev-btn.active-2{border-color:var(--yellow);color:var(--yellow);background:rgba(255,204,0,.1)}
+.sev-btn.active-3{border-color:var(--red);color:var(--red);background:rgba(255,61,61,.1)}
+.cond-delete-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;transition:color .15s}
+.cond-delete-btn:hover{color:var(--red)}
+.add-cond-btn{width:100%;background:transparent;border:1px dashed var(--border2);color:var(--muted);font-family:var(--font-mono);font-size:10px;padding:6px;border-radius:2px;cursor:pointer;letter-spacing:1px;margin-top:4px;transition:all .2s}
+.add-cond-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.save-patient-btn{width:100%;background:var(--cyan-dim);border:1px solid var(--cyan);color:var(--cyan);font-family:var(--font-mono);font-size:11px;padding:8px;border-radius:2px;cursor:pointer;letter-spacing:2px;margin-top:8px;transition:all .2s}
+.save-patient-btn:hover{background:var(--cyan);color:#000}
+.sev-bar{height:3px;border-radius:2px;background:var(--muted2);margin-top:5px;overflow:hidden}
+.sev-fill{height:100%;border-radius:2px;transition:width .5s}
+#sp-dt-btn{margin:10px 12px;background:var(--cyan-dim);border:1px solid var(--cyan);color:var(--cyan);font-family:var(--font-mono);font-size:10px;padding:8px;width:calc(100% - 24px);letter-spacing:2px;cursor:pointer;border-radius:2px;transition:all .2s;text-align:center}
+#sp-dt-btn:hover{background:var(--cyan);color:#000}
+#sp-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;gap:10px;color:var(--muted);font-family:var(--font-mono);font-size:11px}
+.assign-btn{background:transparent;border:1px solid var(--border2);color:var(--muted);font-family:var(--font-mono);font-size:10px;padding:6px 12px;border-radius:2px;cursor:pointer;transition:all .2s;margin-top:8px}
+.assign-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* HEATMAP OVERLAY - sits behind panels, full canvas area */
+#heatmap-overlay{position:fixed;left:0;right:0;bottom:52px;top:48px;pointer-events:none;z-index:120;display:none}
+#heatmap-overlay.show{display:block}
+/* Heatmap toggle button floating bottom-right above nav */
+#heatmap-toggle-btn{position:fixed;bottom:60px;right:14px;z-index:160;background:rgba(7,9,15,.92);border:1px solid var(--border2);color:var(--muted);font-family:var(--font-mono);font-size:9px;padding:5px 10px;border-radius:2px;cursor:pointer;letter-spacing:1px;transition:all .2s;display:flex;align-items:center;gap:5px}
+#heatmap-toggle-btn.active{border-color:var(--orange);color:var(--orange);background:rgba(255,140,0,.12)}
+#heatmap-toggle-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+
+/* TOOLTIP */
+#tooltip{position:fixed;background:rgba(7,9,15,.96);border:1px solid var(--cyan2);border-radius:2px;padding:6px 10px;font-family:var(--font-mono);font-size:10px;pointer-events:none;display:none;z-index:300;max-width:220px;line-height:1.6}
+
+/* MINIMAP */
+#minimap{position:fixed;bottom:60px;left:12px;z-index:150;background:rgba(7,9,15,.92);border:1px solid var(--border);border-radius:2px;padding:8px;cursor:pointer}
+#minimap canvas{display:block}
+#minimap-label{font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:1px;text-align:center;margin-top:4px}
+#minimap-toggle{font-family:var(--font-mono);font-size:8px;color:var(--cyan2);text-align:center;cursor:pointer;margin-top:2px}
+
+/* MODAL */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:400;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+#modal-overlay.show{display:flex}
+#modal-box{background:var(--panel);border:1px solid var(--border2);border-radius:3px;padding:24px;width:380px;max-width:90vw}
+#modal-title{font-family:var(--font-mono);font-size:13px;color:var(--cyan);letter-spacing:2px;margin-bottom:16px}
+#modal-body{margin-bottom:16px;font-size:13px;color:var(--text);line-height:1.6}
+.modal-input{width:100%;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:8px 10px;border-radius:2px;outline:none;margin-bottom:8px}
+.modal-input:focus{border-color:var(--cyan)}
+.modal-input option{background:var(--panel)}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.modal-btn{background:transparent;border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:10px;padding:6px 16px;border-radius:2px;cursor:pointer;transition:all .15s}
+.modal-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.modal-btn.primary{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim)}
+.modal-btn.primary:hover{background:var(--cyan);color:#000}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ANIMATIONS */
+@keyframes pY{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes pR{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* HISTORY PANEL — left side, scrollable history log for selected patient */
+#dt-panel{position:fixed;left:0;top:48px;bottom:52px;width:320px;background:rgba(3,5,9,.98);border-right:1px solid var(--cyan2);display:flex;flex-direction:column;z-index:160;transform:translateX(-100%);transition:transform .35s cubic-bezier(.2,.8,.2,1);backdrop-filter:blur(12px)}
+#dt-panel.open{transform:translateX(0);pointer-events:all}
+#dt-shield{display:none}
+
+#dt-header{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;height:42px;background:rgba(0,180,220,.03)}
+#dt-title{font-family:var(--font-mono);font-size:10px;color:var(--cyan);letter-spacing:2px}
+#dt-patient-name{font-family:var(--font-mono);font-size:11px;color:var(--text);font-weight:700;letter-spacing:1px;flex:1;text-align:center}
+#dt-close{background:transparent;border:1px solid var(--border);color:var(--muted);width:24px;height:24px;border-radius:2px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+#dt-close:hover{border-color:var(--red);color:var(--red)}
+
+/* Vital strip under header */
+/* FLOATING STAGE HUD — anchored above the center stage cage in 3D world space */
+#stage-hud{position:fixed;display:none;pointer-events:none;z-index:90;transform:translate(-50%,-100%);flex-direction:column;align-items:center;gap:5px;max-width:90vw}
+#stage-hud.show{display:flex}
+#stage-hud-top{display:flex;gap:6px;align-items:stretch;flex-wrap:wrap;justify-content:center}
+.stage-hud-box{display:flex;align-items:center;gap:6px;padding:5px 10px;background:rgba(5,8,15,.82);border:1px solid var(--border2);border-radius:3px;font-family:var(--font-mono);backdrop-filter:blur(8px);box-shadow:0 2px 12px rgba(0,0,0,.6)}
+.stage-hud-icon{font-size:16px;line-height:1}
+.stage-hud-text{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1}
+.stage-hud-val{font-size:13px;font-weight:700;letter-spacing:1px}
+.stage-hud-unit{font-size:8px;color:var(--muted);letter-spacing:1.5px;margin-top:1px}
+.stage-hud-box.crit{border-color:var(--red);box-shadow:0 0 14px rgba(255,61,61,.45)}
+.stage-hud-box.crit .stage-hud-val{color:var(--red)}
+.stage-hud-box.crit .stage-hud-icon{color:var(--red);animation:blink 1.2s infinite}
+.stage-hud-box.warn{border-color:var(--yellow);box-shadow:0 0 12px rgba(255,204,0,.3)}
+.stage-hud-box.warn .stage-hud-val{color:var(--yellow)}
+.stage-hud-box.warn .stage-hud-icon{color:var(--yellow)}
+.stage-hud-box.ok{border-color:var(--green)}
+.stage-hud-box.ok .stage-hud-val{color:var(--green)}
+.stage-hud-box.ok .stage-hud-icon{color:var(--green)}
+.stage-hud-box.neutral{border-color:var(--cyan2)}
+.stage-hud-box.neutral .stage-hud-val{color:var(--cyan)}
+.stage-hud-box.neutral .stage-hud-icon{color:var(--cyan)}
+#stage-hud-name{padding:3px 10px;background:rgba(0,160,200,.1);border:1px solid var(--cyan2);border-radius:2px;font-family:var(--font-mono);font-size:10px;color:var(--cyan);letter-spacing:1.5px;backdrop-filter:blur(6px);box-shadow:0 2px 8px rgba(0,0,0,.5);max-width:calc(100vw - 40px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ANATOMY DIAGRAM — X-ray style silhouette with condition zones */
+#stage-hud-anatomy{background:rgba(5,10,20,.82);border:1px solid var(--cyan2);border-radius:3px;padding:6px 8px;backdrop-filter:blur(8px);box-shadow:0 2px 10px rgba(0,0,0,.6);display:flex;gap:10px;align-items:center;pointer-events:auto}
+.anatomy-svg{width:70px;height:80px;flex-shrink:0}
+.anatomy-svg .zone{fill:#1e3550;stroke:#3a5878;stroke-width:.8;transition:fill .2s,stroke .2s}
+.anatomy-svg .zone.ok{fill:#0d3a28;stroke:#1e7a50}
+.anatomy-svg .zone.warn{fill:#5a3b00;stroke:#ffcc00}
+.anatomy-svg .zone.crit{fill:#6a1010;stroke:#ff3d3d;animation:blink 1.1s infinite}
+.anatomy-svg .body-outline{fill:none;stroke:#6ab8d4;stroke-width:1.2;opacity:.8}
+.anatomy-svg .zone:hover{stroke-width:2;cursor:pointer}
+.anatomy-list{display:flex;flex-direction:column;gap:3px;font-family:var(--font-mono);font-size:9px;min-width:110px}
+.anatomy-list-empty{color:var(--green);font-size:9px;letter-spacing:1px}
+.anatomy-row{display:flex;align-items:center;gap:5px;color:var(--text)}
+.anatomy-row .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.anatomy-row.crit .dot{background:var(--red);animation:blink 1s infinite}
+.anatomy-row.warn .dot{background:var(--yellow)}
+.anatomy-row.ok .dot{background:var(--green)}
+.anatomy-row .lbl{text-transform:uppercase;letter-spacing:.5px;font-size:8.5px}
+.anatomy-row .sev{color:var(--muted);font-size:8px}
+
+/* Control row — rotate arrows, walk, clear */
+#stage-hud-controls{display:flex;gap:4px;pointer-events:auto;margin-top:2px}
+.stage-ctrl-btn{background:rgba(5,8,15,.85);border:1px solid var(--border2);color:var(--text);font-family:var(--font-mono);font-size:11px;padding:5px 10px;border-radius:3px;cursor:pointer;letter-spacing:1px;transition:all .15s;backdrop-filter:blur(6px);display:flex;align-items:center;gap:4px}
+.stage-ctrl-btn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,80,100,.4)}
+.stage-ctrl-btn.walk{border-color:var(--orange);color:var(--orange)}
+.stage-ctrl-btn.walk:hover{background:rgba(255,140,0,.15)}
+.stage-ctrl-btn.clear{border-color:var(--red);color:var(--red)}
+.stage-ctrl-btn.clear:hover{background:rgba(255,61,61,.15)}
+.stage-ctrl-icon{font-size:13px;line-height:1}
+
+/* History log body */
+#dt-body{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:0}
+#dt-log-title{font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:2px;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+#dt-log-count{color:var(--cyan);font-size:10px}
+.hist-entry{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--muted2);font-size:11px}
+.hist-time{font-family:var(--font-mono);font-size:9px;color:var(--muted);white-space:nowrap;padding-top:2px;min-width:64px}
+.hist-msg{color:var(--text);line-height:1.5;flex:1}
+.hist-badge{display:inline-block;font-family:var(--font-mono);font-size:8px;padding:1px 6px;border-radius:1px;margin-right:6px;letter-spacing:1px}
+.hist-empty{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;padding:30px 0}
+
+#dt-add-note-btn{margin:10px 14px;background:transparent;border:1px dashed var(--cyan2);color:var(--cyan);font-family:var(--font-mono);font-size:10px;padding:8px;border-radius:2px;cursor:pointer;letter-spacing:2px;transition:all .2s;flex-shrink:0}
+#dt-add-note-btn:hover{background:var(--cyan-dim);border-style:solid}
+
+/* =====================================================================
+   MOBILE LAYOUT OVERRIDES — iPhone 14 Pro Max (430×932) first
+   Strategy: transform desktop panels into mobile sheets/drawers.
+   Same IDs/classes preserved so JS keeps working.
+   ===================================================================== */
+
+/* Safe area support */
+:root{
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mb-topbar: 52px;
+  --mb-bottomnav: 62px;
+}
+
+/* Prevent scroll/zoom */
+html, body{
+  overflow:hidden;
+  overscroll-behavior:none;
+  -webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:none;
+  user-select:none;
+}
+body{
+  padding-top:var(--safe-top);
+  padding-bottom:var(--safe-bottom);
+}
+
+/* ===== TOP BAR — compact ===== */
+#topbar{
+  top:var(--safe-top);
+  height:var(--mb-topbar);
+  padding:0;
+}
+#tb-logo{
+  padding:0 12px;
+  font-size:11px;
+  letter-spacing:1.5px;
+  border-right:none;
+  gap:4px;
+}
+#tb-logo span{display:none}
+/* Breadcrumb: tiny, one-line, truncated */
+#tb-breadcrumb{
+  padding:0 4px;
+  font-size:9px;
+  gap:3px;
+  flex:1;
+  min-width:0;
+}
+#tb-breadcrumb b{font-size:9px}
+/* Search collapses to icon only — tap expands */
+#search-wrap{
+  border-left:none;border-right:none;
+  padding:0 6px;gap:0;
+  position:relative;
+}
+#search-input{
+  display:none;
+}
+#search-input.mb-show{
+  display:block;
+  position:fixed;
+  top:calc(var(--safe-top) + var(--mb-topbar));
+  left:8px;right:8px;
+  width:auto;
+  z-index:250;
+  padding:10px 12px;
+  font-size:13px;
+  border-radius:4px;
+  background:var(--panel2);
+}
+#search-btn{
+  padding:0;
+  width:36px;height:36px;
+  font-size:0;
+  background:transparent;
+  border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);
+}
+#search-btn::after{
+  content:'\1F50D';
+  font-size:14px;
+  color:var(--cyan);
+}
+
+#search-results{
+  top:calc(var(--safe-top) + var(--mb-topbar) + 56px);
+  left:8px;right:8px;
+  width:auto;
+  max-height:40vh;
+  border:1px solid var(--border2);
+  border-radius:4px;
+}
+
+/* Compact tb-controls: only keep notif bell + menu trigger. Others move to drawer */
+#tb-controls{
+  gap:4px;
+  padding:0 8px;
+  border-left:none;
+}
+#btn-view-3d, #btn-view-top{
+  width:34px;height:34px;
+  padding:0;
+  font-size:9px;
+}
+/* Hide desktop buttons; replace with menu */
+#tb-controls .tbtn:not(#btn-view-3d):not(#btn-view-top):not(.mb-menu-btn){
+  display:none;
+}
+#csv-input{display:none}
+
+/* Hamburger menu button replaces CSV/DEMO/EXPORT */
+.mb-menu-btn{
+  width:36px;height:36px;
+  background:transparent;
+  border:1px solid var(--border2);
+  color:var(--text);
+  border-radius:2px;
+  font-size:18px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+}
+.mb-menu-btn:active{background:var(--cyan-dim);border-color:var(--cyan);color:var(--cyan)}
+
+#tb-notif{
+  width:36px;height:36px;
+  margin-left:0;
+}
+#tb-notif-icon{font-size:14px}
+#tb-notif-panel{
+  position:fixed;
+  top:calc(var(--safe-top) + var(--mb-topbar) + 6px);
+  right:6px;left:6px;
+  width:auto;
+  max-height:70vh;
+  border-radius:4px;
+}
+
+#tb-clock{
+  display:none;
+}
+
+/* ===== CANVAS ===== */
+#canvas-wrap{
+  top:calc(var(--safe-top) + var(--mb-topbar));
+  bottom:calc(var(--safe-bottom) + var(--mb-bottomnav));
+  inset-inline:0;
+  transition:background .3s ease;
+}
+/* When a kennel is staged, the 3D world is hidden. Paint the canvas-wrap as
+   an isolated "tab" card so only the patient cage reads as content. */
+body.stage-isolated #canvas-wrap{
+  background:radial-gradient(ellipse at 50% 42%, rgba(8,18,34,.92) 0%, rgba(3,5,11,.98) 70%);
+}
+body.stage-isolated #canvas-3d{
+  background:transparent;
+}
+
+/* ===== TOOLTIP — wider on mobile ===== */
+#tooltip{
+  display:none !important;
+}
+
+/* ===== STAGE HUD — MOBILE REDESIGN =====
+   Layout: absolute-positioned frame around the cage.
+   - #stage-hud itself becomes a fullscreen overlay container
+   - Name badge pins to top
+   - Status column floats left of cage
+   - Anatomy column floats right of cage
+   - Controls pin to bottom of cage (above info sheet)
+*/
+#stage-hud{
+  position:fixed !important;
+  top:calc(var(--safe-top) + var(--mb-topbar)) !important;
+  left:0 !important;
+  right:0 !important;
+  bottom:auto !important;
+  width:100vw !important;
+  max-width:none !important;
+  height:auto;
+  transform:none !important;
+  display:none !important;
+  flex-direction:column;
+  gap:0;
+  pointer-events:none;
+  z-index:90;
+  padding:0;
+}
+#stage-hud.show{display:block !important}
+#stage-hud *{pointer-events:auto}
+
+/* Name badge — top-center */
+#stage-hud-name{
+  position:absolute;
+  top:6px;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:10px;
+  padding:4px 12px;
+  letter-spacing:1.5px;
+  z-index:3;
+  max-width:calc(100vw - 140px);
+}
+
+/* STATUS column — left side of cage. Card-style, dominant. */
+#stage-hud-top{
+  position:absolute;
+  top:44px;
+  left:8px;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:7px !important;
+  flex-wrap:nowrap !important;
+  z-index:3;
+}
+.stage-hud-box{
+  padding:8px 11px !important;
+  min-width:96px;
+  justify-content:flex-start !important;
+  background:rgba(8,12,22,.96) !important;
+  border-width:1.5px !important;
+  border-radius:5px !important;
+  box-shadow:0 4px 14px rgba(0,0,0,.7), inset 0 0 0 1px rgba(0,170,204,.08) !important;
+}
+.stage-hud-box.crit{
+  box-shadow:0 0 18px rgba(255,61,61,.55), 0 4px 14px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,61,61,.18) !important;
+}
+.stage-hud-box.warn{
+  box-shadow:0 0 14px rgba(255,204,0,.4), 0 4px 14px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,204,0,.18) !important;
+}
+.stage-hud-icon{font-size:16px !important}
+.stage-hud-val{font-size:13px !important;letter-spacing:.5px !important;font-weight:700}
+.stage-hud-unit{font-size:8px !important;color:var(--cyan2) !important}
+
+/* ANATOMY — right side of cage. Card-style, dominant. */
+#stage-hud-anatomy{
+  position:absolute !important;
+  top:44px;
+  right:8px;
+  flex-direction:column !important;
+  gap:6px !important;
+  padding:8px 8px !important;
+  max-width:120px;
+  z-index:3;
+  background:rgba(8,12,22,.96) !important;
+  border-width:1.5px !important;
+  border-radius:5px !important;
+  box-shadow:0 4px 14px rgba(0,0,0,.7), inset 0 0 0 1px rgba(0,170,204,.1) !important;
+}
+.anatomy-svg{width:62px !important;height:76px !important;align-self:center}
+.anatomy-list{min-width:auto !important;font-size:8px !important;gap:2px !important}
+.anatomy-list-empty{font-size:8px !important;text-align:center}
+.anatomy-row{gap:4px !important}
+.anatomy-row .lbl{font-size:7.5px !important}
+.anatomy-row .sev{font-size:7px !important}
+.anatomy-row .dot{width:5px !important;height:5px !important}
+
+/* CONTROL BUTTONS — pinned ABOVE bottom sheet (higher z-index than sheet) */
+#stage-hud-controls{
+  position:fixed !important;
+  left:50% !important;
+  transform:translateX(-50%) !important;
+  display:flex !important;
+  gap:6px !important;
+  flex-wrap:nowrap !important;
+  z-index:240 !important;
+  pointer-events:auto !important;
+  padding:10px 12px;
+  background:rgba(5,8,15,.92);
+  border:1px solid var(--cyan2);
+  border-radius:8px;
+  backdrop-filter:blur(10px);
+  box-shadow:0 4px 18px rgba(0,0,0,.7);
+  /* bottom set dynamically by JS based on sheet state */
+}
+.stage-ctrl-btn{
+  padding:9px 11px !important;
+  font-size:10px !important;
+  min-width:auto !important;
+  min-height:42px !important;
+  letter-spacing:.5px !important;
+  gap:4px !important;
+  white-space:nowrap;
+  touch-action:manipulation;
+}
+.stage-ctrl-icon{font-size:12px !important}
+/* Hide controls when HUD not shown */
+#stage-hud-controls.hidden{display:none !important}
+
+/* ===== MINIMAP — collapsible panel with toggle FAB ===== */
+#minimap{
+  position:fixed !important;
+  bottom:calc(var(--safe-bottom) + var(--mb-bottomnav) + 60px) !important;
+  left:8px !important;
+  z-index:150 !important;
+  padding:8px !important;
+  background:rgba(7,9,15,.95) !important;
+  border:1px solid var(--cyan2) !important;
+  border-radius:6px !important;
+  width:auto !important;
+  height:auto !important;
+  transform-origin:bottom left;
+  transform:scale(0);
+  opacity:0;
+  pointer-events:none;
+  transition:transform .25s cubic-bezier(.2,.8,.2,1), opacity .2s;
+  backdrop-filter:blur(12px);
+  box-shadow:0 4px 16px rgba(0,0,0,.6);
+}
+#minimap.show{
+  transform:scale(1);
+  opacity:1;
+  pointer-events:auto;
+}
+#minimap canvas{display:block}
+#minimap-label{font-size:9px !important;margin-top:6px !important}
+
+/* Minimap toggle FAB — bottom-left floating */
+#mb-minimap-fab{
+  position:fixed;
+  left:8px;
+  bottom:calc(var(--safe-bottom) + var(--mb-bottomnav) + 8px);
+  z-index:96;
+  width:44px;height:44px;
+  background:rgba(5,8,15,.9);
+  border:1px solid var(--border2);
+  color:var(--text);
+  border-radius:50%;
+  font-size:15px;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);
+  cursor:pointer;
+  transition:all .15s;
+}
+#mb-minimap-fab.active{
+  border-color:var(--cyan);
+  color:var(--cyan);
+  box-shadow:0 0 12px rgba(0,212,255,.4);
+}
+
+/* ===== HEATMAP toggle — FAB style ===== */
+#heatmap-toggle{
+  position:fixed;
+  right:8px;
+  bottom:calc(var(--safe-bottom) + var(--mb-bottomnav) + 8px);
+  z-index:95;
+  width:44px;height:44px;
+  padding:0;
+  border-radius:50%;
+  background:rgba(5,8,15,.9);
+  border:1px solid var(--border2);
+  color:var(--text);
+  font-size:11px;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);
+}
+#heatmap-toggle.active{
+  border-color:var(--orange);
+  color:var(--orange);
+  box-shadow:0 0 12px rgba(255,140,0,.4);
+}
+
+/* ===== BOTTOM NAV — restructured ===== */
+#nav-bar{
+  bottom:var(--safe-bottom);
+  left:0;right:0;
+  height:var(--mb-bottomnav);
+  padding:0;
+  border-top:1px solid var(--border);
+  background:rgba(7,9,15,.98);
+  z-index:180;
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr 1fr;
+  gap:0;
+  backdrop-filter:blur(12px);
+}
+/* Hide desktop nav sections */
+#nav-bar > .nav-section,
+#nav-bar > #nav-stats,
+#nav-bar > #nav-zoom{
+  display:none;
+}
+/* Mobile tabs */
+.mb-nav-tab{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  font-family:var(--font-mono);
+  font-size:8.5px;
+  letter-spacing:1px;
+  color:var(--muted);
+  background:transparent;
+  border:none;
+  cursor:pointer;
+  transition:color .15s;
+  padding:4px 0;
+  position:relative;
+}
+.mb-nav-tab .ic{font-size:18px;line-height:1}
+.mb-nav-tab.active{color:var(--cyan)}
+.mb-nav-tab.active::before{
+  content:'';
+  position:absolute;
+  top:0;left:30%;right:30%;
+  height:2px;
+  background:var(--cyan);
+  box-shadow:0 0 6px var(--cyan);
+}
+.mb-nav-tab .badge{
+  position:absolute;
+  top:2px;right:22%;
+  min-width:14px;height:14px;
+  background:var(--red);
+  color:#fff;
+  border-radius:7px;
+  font-size:8px;
+  display:none;
+  align-items:center;justify-content:center;
+  padding:0 4px;
+}
+.mb-nav-tab.has-alert .badge{display:flex}
+
+/* ===== BOTTOM SHEET (replaces side-panel on mobile) ===== */
+#side-panel{
+  position:fixed;
+  left:0;right:0;
+  bottom:calc(var(--safe-bottom) + var(--mb-bottomnav));
+  top:auto;
+  width:100%;
+  height:auto;
+  max-height:55vh;
+  min-height:40vh;
+  border-left:none;
+  border-top:1px solid var(--cyan2);
+  border-radius:16px 16px 0 0;
+  transform:translateY(calc(100% + var(--mb-bottomnav)));
+  transition:transform .35s cubic-bezier(.2,.8,.2,1);
+  z-index:220;
+  box-shadow:0 -8px 32px rgba(0,0,0,.6);
+}
+#side-panel.open{transform:translateY(0)}
+/* When sheet open, make sp-body scrollable within its height */
+#sp-body{
+  max-height:calc(55vh - 140px) !important;
+}
+
+/* Drag handle */
+#side-panel::before{
+  content:'';
+  display:block;
+  width:44px;
+  height:4px;
+  background:var(--muted);
+  border-radius:2px;
+  margin:8px auto 4px;
+  opacity:.6;
+}
+
+#sp-header{
+  padding:8px 16px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+#sp-title{font-size:10px}
+#sp-return-btn{font-size:9px;padding:4px 8px}
+#sp-close{
+  width:32px;height:32px;
+  font-size:16px;
+}
+#sp-addr{
+  padding:6px 16px;
+  font-size:9px;
+  border-bottom:1px solid var(--border);
+}
+#sp-tabs{
+  display:flex;
+  border-bottom:1px solid var(--border);
+}
+.sp-tab{
+  flex:1;
+  padding:10px 0;
+  font-size:10px;
+  letter-spacing:2px;
+  min-height:40px;
+}
+#sp-body{
+  max-height:calc(55vh - 140px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:14px 16px;
+}
+/* Larger buttons and inputs on mobile */
+#sp-body .action-btn,
+#sp-body button{
+  min-height:40px;
+  font-size:11px;
+}
+.vital-edit-input, .vital-edit-wrap input, #sp-body input, #sp-body select{
+  min-height:36px;
+  font-size:13px !important;
+  padding:6px 10px !important;
+}
+.sev-btn{
+  min-width:36px;
+  min-height:36px;
+}
+
+/* ===== HISTORY SHEET (replaces left dt-panel) ===== */
+#dt-panel{
+  position:fixed;
+  left:0;right:0;
+  bottom:calc(var(--safe-bottom) + var(--mb-bottomnav));
+  top:auto;
+  width:100%;
+  height:auto;
+  max-height:calc(100vh - var(--safe-top) - var(--mb-topbar) - var(--mb-bottomnav) - var(--safe-bottom) - 40px);
+  border-right:none;
+  border-top:1px solid var(--cyan2);
+  border-radius:16px 16px 0 0;
+  transform:translateY(calc(100% + var(--mb-bottomnav)));
+  transition:transform .35s cubic-bezier(.2,.8,.2,1);
+  z-index:220;
+  box-shadow:0 -8px 32px rgba(0,0,0,.6);
+}
+#dt-panel.open{transform:translateY(0)}
+/* Drag handle */
+#dt-panel::before{
+  content:'';
+  display:block;
+  width:44px;
+  height:4px;
+  background:var(--muted);
+  border-radius:2px;
+  margin:8px auto 4px;
+  opacity:.6;
+}
+#dt-header{
+  padding:8px 16px;
+}
+#dt-body{
+  padding:14px 16px;
+  max-height:calc(85vh - 140px);
+}
+#dt-add-note-btn{
+  margin:10px 16px calc(10px + var(--safe-bottom));
+  min-height:44px;
+  font-size:11px;
+}
+
+/* Hide dt-shield always on mobile */
+#dt-shield{display:none !important}
+
+/* ===== MODAL — fullscreen on mobile ===== */
+#modal-box{
+  width:92vw;
+  max-width:92vw;
+  max-height:85vh;
+}
+
+/* ===== DRAWER (hamburger menu) ===== */
+#mb-drawer{
+  position:fixed;
+  top:0;right:-100%;
+  width:80%;
+  max-width:320px;
+  height:100%;
+  background:rgba(7,9,15,.98);
+  border-left:1px solid var(--cyan2);
+  z-index:500;
+  transition:right .3s cubic-bezier(.2,.8,.2,1);
+  display:flex;
+  flex-direction:column;
+  backdrop-filter:blur(12px);
+  padding-top:calc(var(--safe-top) + 12px);
+  padding-bottom:var(--safe-bottom);
+}
+#mb-drawer.open{right:0}
+#mb-drawer-head{
+  padding:12px 18px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+#mb-drawer-title{
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--cyan);
+  letter-spacing:2px;
+}
+#mb-drawer-close{
+  width:32px;height:32px;
+  background:transparent;
+  border:1px solid var(--border2);
+  color:var(--text);
+  border-radius:2px;
+  font-size:14px;
+  cursor:pointer;
+}
+.mb-drawer-item{
+  padding:14px 18px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--text);
+  letter-spacing:1.5px;
+  cursor:pointer;
+  transition:background .15s;
+  min-height:52px;
+  background:transparent;
+  border-left:none;
+  border-right:none;
+  border-top:none;
+  width:100%;
+  text-align:left;
+}
+.mb-drawer-item:active{background:var(--cyan-dim);color:var(--cyan)}
+.mb-drawer-item .ic{
+  font-size:16px;
+  width:24px;
+  text-align:center;
+  color:var(--cyan);
+}
+.mb-drawer-item.danger .ic{color:var(--red)}
+.mb-drawer-section{
+  padding:10px 18px 4px;
+  font-family:var(--font-mono);
+  font-size:9px;
+  color:var(--muted);
+  letter-spacing:2px;
+  text-transform:uppercase;
+}
+
+/* Filter chips in drawer */
+.mb-filter-grid{
+  padding:8px 14px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+.mb-filter-chip{
+  padding:10px;
+  background:var(--panel2);
+  border:1px solid var(--border2);
+  border-radius:3px;
+  font-family:var(--font-mono);
+  font-size:10px;
+  color:var(--text);
+  letter-spacing:1px;
+  cursor:pointer;
+  text-align:center;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  min-height:40px;
+}
+.mb-filter-chip.active{
+  border-color:var(--cyan);
+  background:var(--cyan-dim);
+  color:var(--cyan);
+}
+.mb-filter-chip .dot{
+  width:8px;height:8px;border-radius:50%;
+}
+
+/* Drawer backdrop */
+#mb-drawer-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.55);
+  z-index:499;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .3s;
+  backdrop-filter:blur(2px);
+}
+#mb-drawer-backdrop.show{
+  opacity:1;
+  pointer-events:auto;
+}
+
+/* ===== ZOOM — horizontal pair, bottom-center floating above bottom nav ===== */
+#mb-zoom-fab{
+  position:fixed;
+  bottom:calc(var(--safe-bottom) + var(--mb-bottomnav) + 8px);
+  left:50%;
+  transform:translateX(-50%);
+  z-index:95;
+  display:flex;
+  flex-direction:row;
+  gap:6px;
+}
+.mb-zoom-btn{
+  width:40px;height:40px;
+  background:rgba(5,8,15,.85);
+  border:1px solid var(--border2);
+  color:var(--text);
+  border-radius:20px;
+  font-size:18px;
+  font-weight:700;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);
+}
+.mb-zoom-btn:active{
+  border-color:var(--cyan);
+  color:var(--cyan);
+}
+#zoom-slider{display:none}
+/* When stage controls are shown (patient staged), hide the zoom fab since controls take that spot */
+#mb-zoom-fab.mb-hidden{display:none !important}
+
+/* ===== CRITICAL LIST VIEW (bottom sheet mode) ===== */
+#mb-critical-sheet{
+  position:fixed;
+  left:0;right:0;
+  bottom:calc(var(--safe-bottom) + var(--mb-bottomnav));
+  top:auto;
+  height:0;
+  max-height:calc(100vh - var(--safe-top) - var(--mb-topbar) - var(--mb-bottomnav) - var(--safe-bottom) - 40px);
+  background:rgba(7,9,15,.98);
+  border-top:1px solid var(--red);
+  border-radius:16px 16px 0 0;
+  z-index:210;
+  overflow:hidden;
+  transition:height .35s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 -8px 32px rgba(0,0,0,.6);
+  backdrop-filter:blur(12px);
+}
+#mb-critical-sheet.open{height:calc(100vh - var(--safe-top) - var(--mb-topbar) - var(--mb-bottomnav) - var(--safe-bottom) - 40px)}
+#mb-critical-head{
+  padding:8px 16px;
+  border-bottom:1px solid var(--border);
+}
+#mb-critical-head::before{
+  content:'';
+  display:block;
+  width:44px;height:4px;
+  background:var(--muted);
+  border-radius:2px;
+  margin:0 auto 8px;
+  opacity:.6;
+}
+#mb-critical-head-row{
+  display:flex;align-items:center;justify-content:space-between;
+}
+#mb-critical-title{
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--red);
+  letter-spacing:2px;
+}
+#mb-critical-close{
+  width:32px;height:32px;
+  background:transparent;
+  border:1px solid var(--border2);
+  color:var(--muted);
+  border-radius:2px;
+  cursor:pointer;
+}
+#mb-critical-body{
+  padding:0;
+  overflow-y:auto;
+  max-height:calc(75vh - 60px);
+  -webkit-overflow-scrolling:touch;
+}
+.mb-crit-item{
+  padding:12px 16px;
+  border-bottom:1px solid var(--muted2);
+  display:flex;align-items:center;gap:10px;
+  cursor:pointer;
+  min-height:64px;
+}
+.mb-crit-item:active{background:rgba(255,61,61,.1)}
+.mb-crit-item .dot{
+  width:10px;height:10px;border-radius:50%;
+  flex-shrink:0;
+}
+.mb-crit-item.crit .dot{background:var(--red);animation:blink .9s infinite}
+.mb-crit-item.warn .dot{background:var(--yellow)}
+.mb-crit-item.ok .dot{background:var(--green)}
+.mb-crit-item .body{flex:1;min-width:0}
+.mb-crit-item .name{
+  font-family:var(--font-mono);
+  font-size:12px;
+  color:var(--text);
+  font-weight:700;
+  margin-bottom:3px;
+}
+.mb-crit-item .meta{
+  font-family:var(--font-mono);
+  font-size:9px;
+  color:var(--muted);
+  letter-spacing:.5px;
+}
+.mb-crit-item .chev{color:var(--muted);font-size:14px}
+.mb-crit-empty{
+  padding:40px 20px;
+  text-align:center;
+  font-family:var(--font-mono);
+  font-size:11px;
+  color:var(--muted);
+}
+
+/* Shared backdrop — dims canvas when any sheet is open for tap-to-close */
+#mb-sheet-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.35);
+  z-index:215;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s;
+}
+#mb-sheet-backdrop.show{
+  opacity:1;
+  pointer-events:auto;
+}
+/* When a cage is staged, the backdrop must NOT intercept taps — the staged
+   controls (LEFT/INSPECT/RIGHT/CLEAR) sit above it and a near-miss would
+   otherwise hit the backdrop and close the panel (cage snaps back to slot). */
+body.stage-isolated #mb-sheet-backdrop{
+  pointer-events:none !important;
+}
+
+/* Toast slightly higher up to avoid bottom nav */
+body > div[style*="bottom:70px"]{
+  bottom:calc(var(--safe-bottom) + var(--mb-bottomnav) + 12px) !important;
+}
+
+/* Disable text selection on all UI chrome but allow on edit inputs */
+input, textarea{user-select:text;-webkit-user-select:text}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR — mobile compact -->
+<div id="topbar">
+  <div id="tb-logo">&#9650; VETWARD <span>v3.0</span></div>
+  <div id="tb-breadcrumb">
+    <b id="bc-room">WARD-A</b>
+    <span style="color:var(--border2)">›</span>
+    <span id="bc-side">—</span>
+    <span style="color:var(--border2)">›</span>
+    <span id="bc-row">—</span>
+    <span style="color:var(--border2)">›</span>
+    <span id="bc-col">—</span>
+  </div>
+  <div id="search-wrap">
+    <input type="text" id="search-input" placeholder="Search patient..." oninput="onSearch(this.value)" onkeydown="searchKeyDown(event)"/>
+    <button id="search-btn" onclick="mbToggleSearch()">&#9906; FIND</button>
+  </div>
+  <div id="search-results"></div>
+  <div id="tb-controls">
+    <button class="tbtn active" id="btn-view-3d" onclick="setView('3d')">3D</button>
+    <button class="tbtn" id="btn-view-top" onclick="setView('top')">TOP</button>
+    <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="handleFile(event)"/>
+    <button class="tbtn" onclick="document.getElementById('csv-input').click()">&#8593; CSV</button>
+    <button class="tbtn" onclick="loadDemo()">DEMO</button>
+    <button class="tbtn danger" onclick="exportCSV()">&#8595; EXPORT</button>
+    <div id="tb-notif" onclick="toggleNotifPanel(event)">
+      <span id="tb-notif-icon">&#128276;</span>
+      <span id="tb-notif-count">0</span>
+      <div id="tb-notif-panel" onclick="event.stopPropagation()"></div>
+    </div>
+    <button class="mb-menu-btn" onclick="mbOpenDrawer()" title="Menu">&#9776;</button>
+  </div>
+  <div id="tb-clock">--:--:--</div>
+</div>
+
+<!-- Mobile zoom controls (left side floating) -->
+<div id="mb-zoom-fab">
+  <button class="mb-zoom-btn" onclick="mbZoom(-1)" title="Zoom in">+</button>
+  <button class="mb-zoom-btn" onclick="mbZoom(1)" title="Zoom out">&minus;</button>
+</div>
+
+<!-- Minimap toggle FAB -->
+<button id="mb-minimap-fab" onclick="mbToggleMinimap()" title="Ward map">&#9638;</button>
+
+<!-- CANVAS -->
+<div id="canvas-wrap"><canvas id="canvas-3d"></canvas></div>
+
+<!-- STAGE HUD — floats above center-stage cage -->
+<div id="stage-hud" onclick="event.stopPropagation()">
+  <div id="stage-hud-name">—</div>
+  <div id="stage-hud-anatomy"><div id="anatomy-svg-wrap"></div><div id="anatomy-list" class="anatomy-list"></div></div>
+  <div id="stage-hud-top">
+    <div class="stage-hud-box" id="hud-status"><span class="stage-hud-icon">&#9632;</span><div class="stage-hud-text"><span class="stage-hud-val">—</span><span class="stage-hud-unit">STATUS</span></div></div>
+    <div class="stage-hud-box" id="hud-temp"><span class="stage-hud-icon">&#127777;</span><div class="stage-hud-text"><span class="stage-hud-val">—</span><span class="stage-hud-unit">TEMP</span></div></div>
+    <div class="stage-hud-box" id="hud-hr"><span class="stage-hud-icon">&#9829;</span><div class="stage-hud-text"><span class="stage-hud-val">—</span><span class="stage-hud-unit">BPM</span></div></div>
+  </div>
+  <div id="stage-hud-controls" class="hidden" ontouchstart="event.stopPropagation()" ontouchend="event.stopPropagation()" onclick="event.stopPropagation()">
+    <button class="stage-ctrl-btn" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation();rotateStage(-1)" title="Rotate left"><span class="stage-ctrl-icon">&#8630;</span> LEFT</button>
+    <button class="stage-ctrl-btn walk" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation();startWalkout()" title="Walk out of cage"><span class="stage-ctrl-icon">&#10550;</span> INSPECT</button>
+    <button class="stage-ctrl-btn" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation();rotateStage(1)" title="Rotate right">RIGHT <span class="stage-ctrl-icon">&#8631;</span></button>
+    <button class="stage-ctrl-btn clear" ontouchstart="event.stopPropagation()" onclick="event.stopPropagation();clearStage()" title="Return cage to shelf"><span class="stage-ctrl-icon">&#10006;</span> CLEAR</button>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip"></div>
+
+<!-- MINIMAP -->
+<div id="minimap" onclick="onMinimapClick(event)">
+  <canvas id="minimap-canvas" width="150" height="130"></canvas>
+  <div id="minimap-label">WARD MAP · CLICK TO JUMP</div>
+</div>
+
+<!-- HEATMAP OVERLAY canvas -->
+<div id="heatmap-overlay">
+  <canvas id="heatmap-main-canvas" style="display:block;width:100%;height:100%;pointer-events:auto"></canvas>
+</div>
+<!-- Floating heatmap toggle button -->
+<button id="heatmap-toggle-btn" onclick="toggleHeatmap()">&#9632; HEAT MAP</button>
+
+<!-- BOTTOM NAV — mobile tab bar -->
+<div id="nav-bar">
+  <!-- Preserve original desktop nav items (hidden via CSS) for JS compatibility -->
+  <div class="nav-section" style="display:none">
+    <span class="nav-label">SIDE</span>
+    <select class="nav-select" id="sel-side" onchange="navSelect()">
+      <option value="">ALL</option>
+      <option value="LEFT">LEFT</option>
+      <option value="RIGHT">RIGHT</option>
+    </select>
+  </div>
+  <div class="nav-section" style="display:none">
+    <span class="nav-label">ROW</span>
+    <select class="nav-select" id="sel-row" onchange="navSelect()">
+      <option value="">ALL</option>
+    </select>
+  </div>
+  <div class="nav-section" style="display:none">
+    <span class="nav-label">COL</span>
+    <select class="nav-select" id="sel-col" onchange="navSelect()">
+      <option value="">ALL</option>
+    </select>
+  </div>
+  <div id="nav-stats" style="display:none">
+    <div class="stat-item" onclick="filterByStatus('ok')"><div class="stat-dot" style="background:var(--green)"></div><span id="st-ok">0 OK</span></div>
+    <div class="stat-item" onclick="filterByStatus('warn')"><div class="stat-dot" style="background:var(--yellow);animation:pY 1.5s infinite"></div><span id="st-warn">0 WARN</span></div>
+    <div class="stat-item" onclick="filterByStatus('crit')"><div class="stat-dot" style="background:var(--red);animation:pR .9s infinite"></div><span id="st-crit">0 CRIT</span></div>
+    <div class="stat-item" onclick="filterByStatus('empty')"><div class="stat-dot" style="background:var(--muted)"></div><span id="st-empty">0 EMPTY</span></div>
+  </div>
+  <div id="nav-zoom" style="display:none">
+    <input type="range" id="zoom-slider" min="4" max="22" value="17" step=".5" oninput="setZoom(this.value)"/>
+  </div>
+
+  <!-- Mobile tabs -->
+  <button class="mb-nav-tab active" data-tab="wards" onclick="mbSelectTab('wards')">
+    <span class="ic">&#9638;</span>
+    <span>WARDS</span>
+  </button>
+  <button class="mb-nav-tab" data-tab="critical" onclick="mbSelectTab('critical')">
+    <span class="ic">&#9888;</span>
+    <span>ALERTS</span>
+    <span class="badge" id="mb-crit-badge">0</span>
+  </button>
+  <button class="mb-nav-tab" data-tab="inspect" onclick="mbSelectTab('inspect')">
+    <span class="ic">&#128269;</span>
+    <span>INSPECT</span>
+  </button>
+  <button class="mb-nav-tab" data-tab="filters" onclick="mbSelectTab('filters')">
+    <span class="ic">&#9881;</span>
+    <span>FILTERS</span>
+  </button>
+</div>
+
+<!-- DRAWER — hamburger menu slide-out -->
+<div id="mb-drawer-backdrop" onclick="mbCloseDrawer()"></div>
+<div id="mb-drawer">
+  <div id="mb-drawer-head">
+    <span id="mb-drawer-title">&#9776; MENU</span>
+    <button id="mb-drawer-close" onclick="mbCloseDrawer()">&#10005;</button>
+  </div>
+  <div class="mb-drawer-section">DATA</div>
+  <button class="mb-drawer-item" onclick="document.getElementById('csv-input').click();mbCloseDrawer()">
+    <span class="ic">&#8593;</span>
+    <span>IMPORT CSV</span>
+  </button>
+  <button class="mb-drawer-item" onclick="loadDemo();mbCloseDrawer()">
+    <span class="ic">&#9873;</span>
+    <span>LOAD DEMO DATA</span>
+  </button>
+  <button class="mb-drawer-item danger" onclick="exportCSV();mbCloseDrawer()">
+    <span class="ic">&#8595;</span>
+    <span>EXPORT CSV</span>
+  </button>
+
+  <div class="mb-drawer-section">STATUS FILTER</div>
+  <div class="mb-filter-grid">
+    <button class="mb-filter-chip" data-st="ok" onclick="mbToggleFilter('ok')"><span class="dot" style="background:var(--green)"></span><span id="st-ok-chip">0 OK</span></button>
+    <button class="mb-filter-chip" data-st="warn" onclick="mbToggleFilter('warn')"><span class="dot" style="background:var(--yellow)"></span><span id="st-warn-chip">0 WARN</span></button>
+    <button class="mb-filter-chip" data-st="crit" onclick="mbToggleFilter('crit')"><span class="dot" style="background:var(--red)"></span><span id="st-crit-chip">0 CRIT</span></button>
+    <button class="mb-filter-chip" data-st="empty" onclick="mbToggleFilter('empty')"><span class="dot" style="background:var(--muted)"></span><span id="st-empty-chip">0 EMPTY</span></button>
+  </div>
+
+  <div class="mb-drawer-section">WARD NAVIGATION</div>
+  <div style="padding:8px 14px;display:flex;gap:6px;flex-wrap:wrap">
+    <button class="mb-filter-chip" onclick="mbFilterSide('LEFT')" style="flex:1">LEFT SIDE</button>
+    <button class="mb-filter-chip" onclick="mbFilterSide('RIGHT')" style="flex:1">RIGHT SIDE</button>
+    <button class="mb-filter-chip" onclick="mbFilterSide('')" style="flex:1">SHOW ALL</button>
+  </div>
+
+  <div class="mb-drawer-section">VIEW MODE</div>
+  <div style="padding:8px 14px;display:flex;gap:6px">
+    <button class="mb-filter-chip active" id="mb-view-3d" onclick="setView('3d');mbUpdateViewChips()" style="flex:1">3D VIEW</button>
+    <button class="mb-filter-chip" id="mb-view-top" onclick="setView('top');mbUpdateViewChips()" style="flex:1">TOP VIEW</button>
+  </div>
+</div>
+
+<!-- CRITICAL ALERTS SHEET -->
+<div id="mb-critical-sheet">
+  <div id="mb-critical-head">
+    <div id="mb-critical-head-row">
+      <span id="mb-critical-title">&#9888; ACTIVE ALERTS</span>
+      <button id="mb-critical-close" onclick="mbCloseCritical()">&#10005;</button>
+    </div>
+  </div>
+  <div id="mb-critical-body">
+    <div class="mb-crit-empty">No alerts</div>
+  </div>
+</div>
+
+<!-- Shared backdrop for bottom sheets -->
+<div id="mb-sheet-backdrop" onclick="mbCloseAllSheets()"></div>
+
+<!-- SIDE PANEL (Patient Info + Edit) -->
+<div id="side-panel">
+  <div id="sp-header">
+    <span id="sp-title">KENNEL INFO</span>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button id="sp-return-btn" onclick="closePanel()" style="display:none;background:rgba(255,140,0,.15);border:1px solid var(--orange);color:var(--orange);font-family:var(--font-mono);font-size:9px;padding:3px 8px;border-radius:2px;cursor:pointer;letter-spacing:1px">&#8629; RETURN</button>
+      <button id="sp-close" onclick="closePanel()">&#10005;</button>
+    </div>
+  </div>
+  <div id="sp-addr"></div>
+  <div id="sp-tabs">
+    <button class="sp-tab active" id="tab-info" onclick="switchTab('info')">INFO</button>
+    <button class="sp-tab" id="tab-edit" onclick="switchTab('edit')">EDIT</button>
+    <button class="sp-tab" id="tab-history" onclick="switchTab('history')">HISTORY</button>
+  </div>
+  <div id="sp-body"><div id="sp-empty">&#9633; Select a kennel<br/>to view patient data</div></div>
+</div>
+
+<!-- HISTORY LOG PANEL — left side, shows selected patient's full history -->
+<div id="dt-panel">
+  <div id="dt-header">
+    <span id="dt-title">&#9678; HISTORY</span>
+    <span id="dt-patient-name">—</span>
+    <button id="dt-close" onclick="closeDT()">&#10005;</button>
+  </div>
+  <div id="dt-body">
+    <div id="dt-log-title">
+      <span>EVENT LOG</span>
+      <span id="dt-log-count">0 entries</span>
+    </div>
+    <div id="dt-log-entries"></div>
+  </div>
+  <button id="dt-add-note-btn" onclick="addNoteFromPanel()">&#43; ADD CLINICAL NOTE</button>
+</div>
+<!-- Shield kept but hidden since left panel no longer intercepts main canvas -->
+<div id="dt-shield"></div>
+
+<!-- MODAL (assign patient to empty kennel) -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <div id="modal-title">ASSIGN PATIENT</div>
+    <div id="modal-body"></div>
+    <div class="modal-btns">
+      <button class="modal-btn" onclick="closeModal()">CANCEL</button>
+      <button class="modal-btn primary" id="modal-confirm-btn">CONFIRM</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// GLOBALS
+// ================================================================
+var scene, camera, renderer, clock;
+var raycaster = null;
+var mouse = null;
+var camTarget = new THREE.Vector3(0,0,0);
+var camTargetPos = new THREE.Vector3(0,12,14);
+
+// DT scene globals
+var dtScene, dtCamera, dtRenderer, dtClock;
+var dtParts = {};
+var dtAnimT = 0;
+var dtPatient = null;
+
+var WARD_CONFIG = { sides:2, rows:5, cols:4, cageW:1.6, cageH:1.4, cageD:1.5, aisleW:4.0, rowGap:2.0, colGap:0.25, stackLevels:2 };
+var kennelMeshes = [];
+var kennelData = {};     // key → patient
+var selectedKennel = null;
+var hoveredKennel = null;
+var currentView = '3d';
+var currentTab = 'info';
+var heatmapVisible = false;
+var filterStatus = null;
+var minimapCells = [];
+
+// Patient history log — patientId → [{time, type, tag, msg}]
+var patientHistory = {};
+
+var COL_EMPTY = 0x1a2840, COL_OK = 0x0d3321, COL_WARN = 0x3d2b00, COL_CRIT = 0x4a0a0a;
+var COL_FRAME = 0x0d1f35, COL_SEL = 0x004060;
+var EMIT_OK = 0x00e676, EMIT_WARN = 0xffcc00, EMIT_CRIT = 0xff3d3d;
+var camState = { h:0.4, v:0.55, dist:17 };
+
+// ================================================================
+// INIT MAIN SCENE
+// ================================================================
+function init() {
+  var canvas = document.getElementById('canvas-3d');
+  var wrap = document.getElementById('canvas-wrap');
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x07090f);
+  scene.fog = new THREE.FogExp2(0x07090f, 0.018);
+
+  camera = new THREE.PerspectiveCamera(55, wrap.clientWidth/wrap.clientHeight, 0.1, 200);
+
+  renderer = new THREE.WebGLRenderer({canvas:canvas, antialias:true});
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  scene.add(new THREE.AmbientLight(0x1a2a4a, 1.8));
+  var key = new THREE.DirectionalLight(0x4090d0, 2.0);
+  key.position.set(5,12,8); key.castShadow=true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.near=0.5; key.shadow.camera.far=50;
+  key.shadow.camera.left=-20; key.shadow.camera.right=20;
+  key.shadow.camera.top=20; key.shadow.camera.bottom=-20;
+  scene.add(key);
+  scene.add(new THREE.DirectionalLight(0x0a2040,0.8).position.set(-5,4,-5));
+  [-6,6].forEach(function(x){ var s=new THREE.PointLight(0x00aacc,0.6,20); s.position.set(x,6,0); scene.add(s); });
+
+  // Center stage spotlight — illuminates the conveyor belt landing zone
+  var stageSpot=new THREE.SpotLight(0x80ccff, 0, 60, Math.PI/5, 0.4, 1.5);
+  stageSpot.position.set(0,7,3); stageSpot.target.position.set(0,0,2.5);
+  stageSpot.castShadow=false; scene.add(stageSpot); scene.add(stageSpot.target);
+  window._stageSpot=stageSpot; // reference for animation
+
+  raycaster = new THREE.Raycaster();
+  mouse = new THREE.Vector2(-999,-999);
+  clock = new THREE.Clock();
+
+  buildRoom();
+  // Tag every visible world object so we can hide them when staged (isolation tab look),
+  // EXCEPT meshes flagged keepInStage (the stage ring + pad — they give visual ground
+  // reference for the patient during walkout).
+  scene.children.forEach(function(o){
+    if(o.geometry && !o.userData.keepInStage) o.userData.isWorld = true;
+  });
+  buildKennels(); setupNavDropdowns(); setupEvents();
+  loadDemo(); animate(); updateClock(); setInterval(updateClock,1000);
+
+  window.addEventListener('resize', function(){
+    var w=wrap.clientWidth, h=wrap.clientHeight;
+    camera.aspect=w/h; camera.updateProjectionMatrix();
+    renderer.setSize(w,h);
+  });
+}
+
+// ================================================================
+// ROOM GEOMETRY
+// ================================================================
+function buildRoom() {
+  var roomW=22, roomD=20, roomH=8;
+  var floorMat = new THREE.MeshStandardMaterial({color:0x0a1020,roughness:0.9,metalness:0.1});
+  var floor = new THREE.Mesh(new THREE.PlaneGeometry(roomW,roomD), floorMat);
+  floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+  scene.add(new THREE.GridHelper(roomW, 22, 0x0d2040, 0x0a1828));
+  var ceil = new THREE.Mesh(new THREE.PlaneGeometry(roomW,roomD), new THREE.MeshStandardMaterial({color:0x080c18,roughness:1}));
+  ceil.rotation.x=Math.PI/2; ceil.position.y=roomH; scene.add(ceil);
+  var wallMat = new THREE.MeshStandardMaterial({color:0x090d1a,roughness:0.9});
+  [{w:roomW,h:roomH,x:0,y:roomH/2,z:-roomD/2,ry:0},{w:roomW,h:roomH,x:0,y:roomH/2,z:roomD/2,ry:Math.PI},{w:roomD,h:roomH,x:-roomW/2,y:roomH/2,z:0,ry:Math.PI/2},{w:roomD,h:roomH,x:roomW/2,y:roomH/2,z:0,ry:-Math.PI/2}].forEach(function(w){
+    var m=new THREE.Mesh(new THREE.PlaneGeometry(w.w,w.h),wallMat.clone()); m.position.set(w.x,w.y,w.z); m.rotation.y=w.ry; m.receiveShadow=true; scene.add(m);
+  });
+  [-8,-2,4].forEach(function(z){
+    var lt=new THREE.Mesh(new THREE.BoxGeometry(16,0.08,0.12),new THREE.MeshStandardMaterial({color:0x00aacc,emissive:0x005566,emissiveIntensity:0.8}));
+    lt.position.set(0,roomH-0.1,z); scene.add(lt);
+  });
+  var aisle=new THREE.Mesh(new THREE.PlaneGeometry(WARD_CONFIG.aisleW-0.4,roomD-2),new THREE.MeshStandardMaterial({color:0x0a1828,roughness:1}));
+  aisle.rotation.x=-Math.PI/2; aisle.position.y=0.005; scene.add(aisle);
+
+  // CENTER STAGE floor ring — glows when a patient is brought for examination
+  var ringGeo = new THREE.RingGeometry(0.88, 1.06, 48);
+  var ringMat = new THREE.MeshStandardMaterial({color:0x00aacc, emissive:new THREE.Color(0x00aacc), emissiveIntensity:0.3, side:THREE.DoubleSide, transparent:true, opacity:0.55});
+  var stageRing = new THREE.Mesh(ringGeo, ringMat);
+  stageRing.rotation.x = -Math.PI/2; stageRing.position.set(0, 0.008, 2.5);
+  stageRing.userData.keepInStage = true;  // visible even when isolation hides the room
+  scene.add(stageRing);
+  var padGeo = new THREE.CircleGeometry(0.88, 48);
+  var padMat = new THREE.MeshStandardMaterial({color:0x001a28, roughness:1, transparent:true, opacity:0.55});
+  var stagePad = new THREE.Mesh(padGeo, padMat);
+  stagePad.rotation.x = -Math.PI/2; stagePad.position.set(0, 0.006, 2.5);
+  stagePad.userData.keepInStage = true;
+  scene.add(stagePad);
+  // Store for animation
+  window._stageRingMat = ringMat;
+  window._stagePadMat  = padMat;
+}
+
+// ================================================================
+// KENNELS
+// ================================================================
+function buildKennels() {
+  kennelMeshes=[];
+  var cfg=WARD_CONFIG;
+  var sides=[{name:'LEFT',xDir:-1},{name:'RIGHT',xDir:1}];
+  sides.forEach(function(side){
+    var baseX=side.xDir*(cfg.aisleW/2+0.2);
+    for(var row=0;row<cfg.rows;row++){
+      var zPos=(row-(cfg.rows-1)/2)*(cfg.cageD+cfg.rowGap);
+      for(var col=0;col<cfg.cols;col++){
+        var xPos=baseX+side.xDir*(col*(cfg.cageW+cfg.colGap)+cfg.cageW/2);
+        for(var lv=0;lv<cfg.stackLevels;lv++){
+          var yPos=lv*(cfg.cageH+0.15)+cfg.cageH/2+0.05;
+          buildOneCage(side.name,row,col,lv,xPos,yPos,zPos);
+        }
+      }
+    }
+  });
+}
+
+function buildOneCage(side,row,col,level,x,y,z) {
+  var cfg=WARD_CONFIG;
+  var key=side+'-'+row+'-'+col+'-'+level;
+  var group=new THREE.Group(); group.position.set(x,y,z);
+  var panelMat=new THREE.MeshStandardMaterial({color:COL_FRAME,roughness:0.6,metalness:0.3});
+  var back=new THREE.Mesh(new THREE.BoxGeometry(cfg.cageW-0.06,cfg.cageH-0.06,0.04),panelMat.clone()); back.position.z=-cfg.cageD/2+0.02; group.add(back);
+  var cFloor=new THREE.Mesh(new THREE.BoxGeometry(cfg.cageW-0.06,0.04,cfg.cageD-0.06),panelMat.clone()); cFloor.position.y=-cfg.cageH/2+0.02; group.add(cFloor);
+  [-1,1].forEach(function(sx){ var sp=new THREE.Mesh(new THREE.BoxGeometry(0.04,cfg.cageH-0.06,cfg.cageD-0.06),panelMat.clone()); sp.position.x=sx*(cfg.cageW/2-0.02); group.add(sp); });
+  var top=new THREE.Mesh(new THREE.BoxGeometry(cfg.cageW-0.06,0.04,cfg.cageD-0.06),panelMat.clone()); top.position.y=cfg.cageH/2-0.02; group.add(top);
+  var glowMat=new THREE.MeshStandardMaterial({color:COL_EMPTY,roughness:0.8,emissive:0x000000,emissiveIntensity:0});
+  var interior=new THREE.Mesh(new THREE.BoxGeometry(cfg.cageW-0.14,cfg.cageH-0.14,cfg.cageD-0.14),glowMat);
+  interior.userData={key:key,side:side,row:row,col:col,level:level,isInterior:true}; group.add(interior);
+  var barMat=new THREE.MeshStandardMaterial({color:0x1a3a5a,roughness:0.4,metalness:0.7,transparent:true,opacity:0.85});
+  var barMeshes=[];
+  for(var b=0;b<7;b++){
+    var bx=-cfg.cageW/2+(b/6)*cfg.cageW;
+    var bar=new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.015,cfg.cageH-0.08,5),barMat.clone()); bar.position.set(bx,0,cfg.cageD/2-0.02); group.add(bar);
+    barMeshes.push(bar);
+  }
+  var hbarMeshes=[];
+  [-1,0,1].forEach(function(hy){ var hb=new THREE.Mesh(new THREE.BoxGeometry(cfg.cageW,0.03,0.03),barMat.clone()); hb.position.set(0,hy*(cfg.cageH/2-0.1),cfg.cageD/2-0.02); group.add(hb); hbarMeshes.push(hb); });
+  var statusLightMat=new THREE.MeshStandardMaterial({color:0x111111,emissive:0x003333,emissiveIntensity:0.5});
+  var statusLight=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,6),statusLightMat); statusLight.position.set(cfg.cageW/2-0.1,cfg.cageH/2-0.12,cfg.cageD/2+0.02); statusLight.userData.isStatusLight=true; group.add(statusLight);
+  var plateMat=new THREE.MeshStandardMaterial({color:0x0d1a2a,roughness:0.5});
+  var plate=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.12,0.02),plateMat); plate.position.set(0,cfg.cageH/2+0.07,cfg.cageD/2-0.1); group.add(plate);
+  var edges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(cfg.cageW,cfg.cageH,cfg.cageD)),new THREE.LineBasicMaterial({color:0x1a3a5a,transparent:true,opacity:0.5})); group.add(edges);
+  group.castShadow=true; group.userData={key:key,side:side,row:row,col:col,level:level}; scene.add(group);
+  kennelMeshes.push({group:group,interior:interior,statusLight:statusLight,edges:edges,back:back,barMeshes:barMeshes,hbarMeshes:hbarMeshes,key:key,side:side,row:row,col:col,level:level,x:x,y:y,z:z});
+}
+
+// ================================================================
+// UPDATE VISUALS
+// ================================================================
+function getPatientStatus(patient) {
+  if(!patient) return 'empty';
+  var maxSev=0; (patient.conditions||[]).forEach(function(c){if(c.severity>maxSev)maxSev=c.severity;});
+  if(maxSev>=3||patient.temp>39.5) return 'crit';
+  if(maxSev>=2) return 'warn';
+  return 'ok';
+}
+
+function updateKennelVisual(km, patient, isSelected) {
+  var col,emi,emiInt,sCol;
+  var st=getPatientStatus(patient);
+  if(st==='empty'){col=COL_EMPTY;emi=0x001122;emiInt=0.1;sCol=0x002233;}
+  else if(st==='crit'){col=COL_CRIT;emi=EMIT_CRIT;emiInt=0.35;sCol=0xff3d3d;}
+  else if(st==='warn'){col=COL_WARN;emi=EMIT_WARN;emiInt=0.25;sCol=0xffcc00;}
+  else{col=COL_OK;emi=EMIT_OK;emiInt=0.12;sCol=0x00e676;}
+
+  // Filter dimming
+  if(filterStatus && st!==filterStatus){emiInt=0.03;col=COL_EMPTY;sCol=0x002233;}
+
+  if(isSelected){col=COL_SEL;emi=0x00aacc;emiInt=0.5;}
+  km.interior.material.color.setHex(col);
+  km.interior.material.emissive.setHex(emi);
+  km.interior.material.emissiveIntensity=emiInt;
+  // Make interior glow box transparent when selected — so the cat inside is visible
+  if(!km.interior.material.transparent){ km.interior.material.transparent = true; }
+  km.interior.material.opacity = isSelected ? 0.15 : 1.0;
+  km.statusLight.material.emissive.setHex(patient?sCol:0x001122);
+  km.statusLight.material.emissiveIntensity=patient?0.8:0.2;
+  km.edges.material.color.setHex(isSelected?0x00d4ff:(patient?0x1a3a5a:0x0d1f2e));
+  km.edges.material.opacity=isSelected?1:0.5;
+  km.back.material.color.setHex(isSelected?0x003355:col);
+  // Make front bars AND back/top/side panels transparent when selected so the patient inside is visible
+  var barOpacity=isSelected?0.08:0.85;
+  var barColor=isSelected?0x00aacc:0x1a3a5a;
+  if(km.barMeshes) km.barMeshes.forEach(function(b){b.material.opacity=barOpacity;b.material.color.setHex(barColor);b.material.emissive&&b.material.emissive.setHex(isSelected?0x003344:0x000000);});
+  if(km.hbarMeshes) km.hbarMeshes.forEach(function(b){b.material.opacity=barOpacity;b.material.color.setHex(barColor);});
+  // Back panel too
+  if(!km.back.material.transparent){ km.back.material.transparent=true; }
+  km.back.material.opacity = isSelected ? 0.25 : 1.0;
+}
+
+function refreshAllKennels() {
+  kennelMeshes.forEach(function(km){
+    var patient=kennelData[km.key]||null;
+    var isSel=selectedKennel&&selectedKennel.key===km.key;
+    updateKennelVisual(km,patient,isSel);
+  });
+  updateStats(); updateMinimap(); if(heatmapVisible) drawHeatmap();
+}
+
+// ================================================================
+// CAMERA
+// ================================================================
+function updateCamera() {
+  var h=camState.h,v=camState.v,d=camState.dist;
+  var px=camTarget.x+Math.sin(h)*Math.cos(v)*d;
+  var py=camTarget.y+Math.sin(v)*d;
+  var pz=camTarget.z+Math.cos(h)*Math.cos(v)*d;
+  camTargetPos.set(px,py,pz);
+}
+// ================================================================
+// CENTER STAGE — "conveyor belt" system
+// Selected kennel's group animates to world center (0,y,0),
+// camera locks on it from the front, panel shows data.
+// On deselect the group returns to its original position.
+// ================================================================
+var stageActive = false;
+var stageKm = null;          // currently staged kennel
+var stageOrigPos = null;     // {x,y,z} original world position
+var stageLerpT = 0;          // 0→1 animation progress
+var stageDir = 1;            // 1=going to center, -1=returning
+var STAGE_CENTER = new THREE.Vector3(0, 1.0, 2.5); // front-center of room
+var STAGE_CAM_POS = new THREE.Vector3(0, 1.5, 7.5); // camera pulled back for mobile portrait with HUD flanks
+var stageCamTarget = new THREE.Vector3(0, 1.0, 2.5);
+var stageCamPos = new THREE.Vector3(0, 1.4, 5.5);
+var stageAnimating = false;
+
+function focusKennel(km) {
+  // If another kennel is currently staged, return it first then stage new one
+  if(stageKm && stageKm.key !== km.key) {
+    returnStage(function(){ beginStage(km); });
+    return;
+  }
+  beginStage(km);
+}
+
+function applyStageIsolation(on){
+  scene.children.forEach(function(o){
+    if(o.userData && o.userData.isWorld) o.visible = !on;
+  });
+  kennelMeshes.forEach(function(km){
+    if(on){
+      km.group.visible = (km === stageKm);
+      if(km === stageKm){
+        // Hide every cage part (panels, bars, interior, status light, plate, edges)
+        // so the patient model is the ONLY thing the user sees.
+        km.group.children.forEach(function(child){
+          if(child !== stageModel) child.visible = false;
+        });
+      }
+    } else {
+      km.group.visible = true;
+      km.group.children.forEach(function(child){ child.visible = true; });
+    }
+  });
+  document.body.classList.toggle('stage-isolated', !!on);
+}
+
+function beginStage(km) {
+  stageKm = km;
+  stageOrigPos = {x: km.group.position.x, y: km.group.position.y, z: km.group.position.z};
+  stageLerpT = 0;
+  stageDir = 1;
+  stageActive = true;
+  stageAnimating = true;
+  applyStageIsolation(true);
+  // Reset rotation for new staged cage
+  stageRotY = 0;
+  stageRotX = 0;
+
+  // Camera: move to front-stage position looking at center
+  stageCamTarget.copy(STAGE_CENTER);
+  stageCamPos.copy(STAGE_CAM_POS);
+
+  // Smooth camera to front
+  camTarget.copy(STAGE_CENTER);
+  camTargetPos.copy(STAGE_CAM_POS);
+}
+
+function returnStage(callback) {
+  if(!stageKm) { if(callback) callback(); return; }
+  stageDir = -1;
+  stageAnimating = true;
+  var _km = stageKm;
+  var _orig = stageOrigPos;
+  var _cb = callback;
+  // We'll handle this in the animate loop via stageDir=-1
+  // Store callback to fire when done
+  stageReturnCallback = _cb;
+}
+var stageReturnCallback = null;
+
+function updateStageAnimation(dt) {
+  if(!stageAnimating || !stageKm) return;
+  var speed = 2.2; // lerp units per second
+  stageLerpT = Math.min(1, stageLerpT + dt * speed);
+
+  var t = easeInOut(stageLerpT);
+
+  if(stageDir === 1) {
+    // Moving to center
+    stageKm.group.position.x = lerp(stageOrigPos.x, STAGE_CENTER.x, t);
+    stageKm.group.position.y = lerp(stageOrigPos.y, STAGE_CENTER.y, t);
+    stageKm.group.position.z = lerp(stageOrigPos.z, STAGE_CENTER.z, t);
+    if(stageLerpT >= 1) { stageAnimating = false; }
+  } else {
+    // Returning
+    stageKm.group.position.x = lerp(STAGE_CENTER.x, stageOrigPos.x, t);
+    stageKm.group.position.y = lerp(STAGE_CENTER.y, stageOrigPos.y, t);
+    stageKm.group.position.z = lerp(STAGE_CENTER.z, stageOrigPos.z, t);
+    if(stageLerpT >= 1) {
+      stageKm.group.position.set(stageOrigPos.x, stageOrigPos.y, stageOrigPos.z);
+      stageKm.group.rotation.set(0, 0, 0);
+      stageRotY = 0; stageRotX = 0;
+      stageAnimating = false;
+      stageActive = false;
+      applyStageIsolation(false);
+      stageKm = null;
+      stageOrigPos = null;
+      if(stageReturnCallback){ stageReturnCallback(); stageReturnCallback=null; }
+    }
+  }
+}
+
+function resetCamera() {
+  // If a kennel is staged, return it first
+  if(stageKm) {
+    stageDir = -1;
+    stageAnimating = true;
+    stageLerpT = 0;
+  }
+  camTarget.set(0,1.5,0);
+  camState.dist=17; camState.v=0.55; camState.h=0.4;
+  updateCamera();
+}
+
+function setZoom(val) { camState.dist=parseFloat(val); updateCamera(); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function easeInOut(t){ return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2; }
+
+// ================================================================
+// ORBIT CONTROLS
+// ================================================================
+var orbitActive=false, orbitStart={x:0,y:0}, pinchStart=0;
+// Rotation applied to staged cage group (reset on stage return)
+var stageRotY = 0;
+var stageRotX = 0;
+
+function setupOrbit() {
+  var canvas=document.getElementById('canvas-3d');
+  canvas.addEventListener('mousedown',function(e){orbitActive=true;orbitStart.x=e.clientX;orbitStart.y=e.clientY;});
+  window.addEventListener('mouseup',function(){orbitActive=false;});
+  window.addEventListener('mousemove',function(e){
+    if(orbitActive){
+      var dx=(e.clientX-orbitStart.x), dy=(e.clientY-orbitStart.y);
+      if(stageActive && stageKm){
+        // Drag rotates the staged cage (patient inside)
+        stageRotY -= dx*0.01;
+        stageRotX = Math.max(-0.6, Math.min(0.6, stageRotX - dy*0.008));
+      } else {
+        // Normal camera orbit
+        camState.h -= dx*0.007;
+        camState.v = Math.max(0.1, Math.min(1.3, camState.v - dy*0.007));
+        updateCamera();
+      }
+      orbitStart.x=e.clientX; orbitStart.y=e.clientY;
+    }
+    handleHover(e);
+  });
+  canvas.addEventListener('wheel',function(e){e.preventDefault();camState.dist=Math.max(4,Math.min(22,camState.dist+e.deltaY*0.02));document.getElementById('zoom-slider').value=camState.dist;updateCamera();},{passive:false});
+  var t0=null;
+  canvas.addEventListener('touchstart',function(e){
+    if(e.touches.length===1){orbitActive=true;t0={x:e.touches[0].clientX,y:e.touches[0].clientY};}
+    else if(e.touches.length===2){pinchStart=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}
+  });
+  canvas.addEventListener('touchmove',function(e){
+    e.preventDefault();
+    if(e.touches.length===1&&t0){
+      var dx=(e.touches[0].clientX-t0.x), dy=(e.touches[0].clientY-t0.y);
+      if(stageActive && stageKm){
+        stageRotY -= dx*0.012;
+        stageRotX = Math.max(-0.6, Math.min(0.6, stageRotX - dy*0.01));
+      } else {
+        camState.h -= dx*0.008;
+        camState.v = Math.max(0.1, Math.min(1.3, camState.v - dy*0.008));
+        updateCamera();
+      }
+      t0={x:e.touches[0].clientX,y:e.touches[0].clientY};
+    } else if(e.touches.length===2){
+      var pinchNow=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      camState.dist=Math.max(4,Math.min(22,camState.dist-(pinchNow-pinchStart)*0.03));
+      pinchStart=pinchNow; document.getElementById('zoom-slider').value=camState.dist; updateCamera();
+    }
+  },{passive:false});
+  canvas.addEventListener('touchend',function(){orbitActive=false;t0=null;});
+}
+
+// ================================================================
+// EVENTS / CLICK
+// ================================================================
+function setupEvents() { setupOrbit(); document.getElementById('canvas-3d').addEventListener('click',function(e){handleClick(e);}); resetCamera(); }
+
+function getHitKennel(cx,cy) {
+  if(!raycaster||!mouse) return null;
+  var rect=renderer.domElement.getBoundingClientRect();
+  mouse.x=((cx-rect.left)/rect.width)*2-1;
+  mouse.y=-((cy-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  var interiors=kennelMeshes.map(function(km){return km.interior;});
+  var hits=raycaster.intersectObjects(interiors);
+  if(!hits.length) return null;
+  return kennelMeshes.find(function(km){return km.interior===hits[0].object;})||null;
+}
+
+function handleClick(e) {
+  // First priority: if stage model is visible, try to hit a body part
+  if(stageModel && stageModelParts && raycaster && mouse) {
+    var rect=renderer.domElement.getBoundingClientRect();
+    mouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+    mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+    raycaster.setFromCamera(mouse,camera);
+    var allParts=[];
+    Object.values(stageModelParts).forEach(function(arr){ if(Array.isArray(arr)) allParts=allParts.concat(arr); });
+    if(allParts.length){
+      var hits=raycaster.intersectObjects(allParts,true);
+      if(hits.length){
+        // Find which part name was hit
+        var hit=hits[0].object;
+        var partName=null;
+        Object.entries(stageModelParts).forEach(function(kv){
+          if(Array.isArray(kv[1]) && kv[1].indexOf(hit)>=0) partName=kv[0];
+        });
+        if(partName){ highlightStagePart(partName); return; }
+      }
+    }
+  }
+
+  // Otherwise normal kennel click
+  var km=getHitKennel(e.clientX,e.clientY);
+  if(!km){
+    // When a cage is staged, taps on empty canvas must NOT close the panel —
+    // with isolation hiding the world, almost every tap is a "miss" and would
+    // otherwise interrupt walkout / send the cage back to its slot.
+    if(stageActive || stageAnimating) return;
+    closePanel(); return;
+  }
+  selectedKennel=km; focusKennel(km); refreshAllKennels();
+  openPanel(km); updateBreadcrumb(km.side,km.row+1,km.col+1);
+}
+
+function handleHover(e) {
+  var tip=document.getElementById('tooltip');
+
+  // First: hover on stage model parts → show part tooltip
+  if(stageModel && stageModelParts && raycaster && mouse) {
+    var rect=renderer.domElement.getBoundingClientRect();
+    mouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+    mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+    raycaster.setFromCamera(mouse,camera);
+    var allParts=[];
+    Object.values(stageModelParts).forEach(function(arr){ if(Array.isArray(arr)) allParts=allParts.concat(arr); });
+    if(allParts.length){
+      var hits=raycaster.intersectObjects(allParts,true);
+      if(hits.length){
+        var hit=hits[0].object;
+        var partName=null;
+        Object.entries(stageModelParts).forEach(function(kv){
+          if(Array.isArray(kv[1]) && kv[1].indexOf(hit)>=0) partName=kv[0];
+        });
+        if(partName){
+          var cond=null;
+          if(dtPatient && dtPatient.conditions) cond=dtPatient.conditions.find(function(c){return c.part===partName;});
+          var sc=cond?(cond.severity>=3?'var(--red)':cond.severity>=2?'var(--yellow)':'var(--green)'):'var(--muted)';
+          var inner='<span style="color:var(--cyan);font-weight:700">'+partName.replace(/_/g,' ').toUpperCase()+'</span>';
+          if(cond){
+            inner+=' <span style="color:'+sc+'">SEV '+cond.severity+'/3</span>';
+            inner+='<br/>'+cond.condition;
+          } else {
+            inner+='<br/><span style="color:var(--muted)">No condition recorded</span>';
+          }
+          tip.innerHTML=inner;
+          tip.style.display='block';
+          tip.style.left=(e.clientX+14)+'px';
+          tip.style.top=(e.clientY-8)+'px';
+          return;
+        }
+      }
+    }
+  }
+
+  // Otherwise normal kennel hover
+  var km=getHitKennel(e.clientX,e.clientY);
+  if(km){
+    var patient=kennelData[km.key]||null;
+    tip.style.display='block'; tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY-8)+'px';
+    var inner='<span style="color:var(--cyan)">'+km.side+' · ROW '+(km.row+1)+' · COL '+(km.col+1)+(km.level>0?' · LV'+(km.level+1):'')+'</span>';
+    if(patient){
+      var maxSev=0;(patient.conditions||[]).forEach(function(c){if(c.severity>maxSev)maxSev=c.severity;});
+      var sc=maxSev>=3?'var(--red)':maxSev>=2?'var(--yellow)':'var(--green)';
+      inner+='<br/><b>'+patient.name+'</b> <span style="color:'+sc+'">[SEV'+maxSev+']</span>';
+      inner+='<br/><span style="color:var(--muted)">'+patient.temp.toFixed(1)+'°C · '+patient.heartRate+' bpm</span>';
+      if(patient.temp>39.5) inner+='<br/><span style="color:var(--red)">🌡 FEVER</span>';
+    } else { inner+='<br/><span style="color:var(--muted)">EMPTY — click to assign</span>'; }
+    tip.innerHTML=inner;
+  } else { tip.style.display='none'; }
+}
+
+// ================================================================
+// SIDE PANEL — TABS
+// ================================================================
+var currentPanelKm = null;
+
+function switchTab(tab) {
+  currentTab=tab;
+  ['info','edit','history'].forEach(function(t){
+    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+  });
+  if(currentPanelKm) renderTab(currentPanelKm);
+}
+
+function openPanel(km) {
+  currentPanelKm=km;
+  document.getElementById('side-panel').classList.add('open');
+  document.getElementById('sp-addr').innerHTML='<b>'+km.side+'</b> &nbsp;·&nbsp; ROW <b>'+(km.row+1)+'</b> &nbsp;·&nbsp; COL <b>'+(km.col+1)+'</b>'+(km.level>0?' &nbsp;·&nbsp; LV<b>'+(km.level+1)+'</b>':'')+'&nbsp; <span style="color:var(--muted2);font-size:9px">'+km.key+'</span>';
+  var retBtn=document.getElementById('sp-return-btn');
+  if(retBtn) retBtn.style.display=kennelData[km.key]?'block':'none';
+  renderTab(km);
+  // On mobile we keep the left history panel closed (history shown inside info tab).
+  // Still need dtPatient set + stage model built, so call openInlineTwin but immediately close the left panel.
+  var patient=kennelData[km.key]||null;
+  if(patient){
+    openInlineTwin(patient);
+    // Mobile: close the history drawer (info tab already shows history log)
+    document.getElementById('dt-panel').classList.remove('open');
+  } else {
+    closeDT();
+  }
+}
+
+function renderTab(km) {
+  var patient=kennelData[km.key]||null;
+  var body=document.getElementById('sp-body');
+
+  if(currentTab==='info') {
+    renderInfoTab(patient,body);
+  } else if(currentTab==='edit') {
+    renderEditTab(patient,km,body);
+  } else if(currentTab==='history') {
+    renderHistoryTab(patient,body);
+  }
+}
+
+function renderHistoryTab(patient, body) {
+  if(!patient){
+    body.innerHTML='<div id="sp-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;gap:10px;color:var(--muted);font-family:var(--font-mono);font-size:11px">&#9633; No patient assigned</div>';
+    return;
+  }
+  var log=patientHistory[patient.id]||[];
+  var html='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 10px;border-bottom:1px solid var(--border);margin-bottom:10px">';
+  html+='<span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:2px">EVENT LOG</span>';
+  html+='<span style="font-family:var(--font-mono);font-size:10px;color:var(--cyan)">'+log.length+' '+(log.length===1?'entry':'entries')+'</span>';
+  html+='</div>';
+  if(log.length===0){
+    html+='<div style="text-align:center;padding:30px 0;color:var(--muted);font-family:var(--font-mono);font-size:10px">No history recorded</div>';
+  } else {
+    html+='<div style="display:flex;flex-direction:column;gap:0">';
+    log.slice().reverse().forEach(function(e){
+      var bc=e.type==='crit'?'rgba(255,61,61,.2);color:#ff8080':e.type==='warn'?'rgba(255,204,0,.18);color:#ffcc00':'rgba(0,180,220,.15);color:#00d4ff';
+      html+='<div class="hist-entry" style="padding:8px 0;border-bottom:1px solid var(--muted2);display:flex;gap:10px;font-size:11px">';
+      html+='<span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);white-space:nowrap;padding-top:2px;min-width:64px">'+e.time+'</span>';
+      html+='<span style="color:var(--text);line-height:1.5;flex:1"><span class="hist-badge" style="background:'+bc+';display:inline-block;font-family:var(--font-mono);font-size:8px;padding:1px 6px;border-radius:1px;margin-right:6px;letter-spacing:1px">'+e.tag+'</span>'+e.msg+'</span>';
+      html+='</div>';
+    });
+    html+='</div>';
+  }
+  html+='<button onclick="addHistoryNote(\''+patient.id+'\')" style="margin-top:14px;width:100%;min-height:44px;background:transparent;border:1px dashed var(--cyan2);color:var(--cyan);font-family:var(--font-mono);font-size:11px;padding:12px;border-radius:2px;cursor:pointer;letter-spacing:2px">&#43; ADD CLINICAL NOTE</button>';
+  body.innerHTML=html;
+}
+
+function renderInfoTab(patient, body) {
+  if(!patient){
+    body.innerHTML='<div id="sp-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;gap:10px;color:var(--muted);font-family:var(--font-mono);font-size:11px">&#9633; KENNEL EMPTY<br/><button class="assign-btn" onclick="switchTab(\'edit\')">+ ASSIGN PATIENT</button></div>';
+    return;
+  }
+  var maxSev=0;(patient.conditions||[]).forEach(function(c){if(c.severity>maxSev)maxSev=c.severity;});
+  var isFever=patient.temp>39.5;
+  var statusCol=maxSev>=3||isFever?'var(--red)':maxSev>=2?'var(--yellow)':'var(--green)';
+  var statusTxt=maxSev>=3||isFever?'CRITICAL':maxSev>=2?'WARNING':'STABLE';
+  var html='<div style="background:'+(maxSev>=3||isFever?'rgba(255,61,61,.1)':maxSev>=2?'rgba(255,204,0,.08)':'rgba(0,230,118,.08)')+';border:1px solid '+statusCol+';border-radius:2px;padding:8px 10px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">';
+  html+='<span style="font-family:var(--font-mono);font-size:11px;color:'+statusCol+'">&#9632; '+statusTxt+'</span>';
+  html+='<span style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">ID:'+patient.id+'</span></div>';
+  html+='<div class="sp-section"><div class="sp-sec-title">PATIENT</div>';
+  html+='<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:2px">'+patient.name+'</div>';
+  html+='<div style="font-family:var(--font-mono);font-size:10px;color:var(--muted)">'+patient.species.toUpperCase()+'</div></div>';
+  html+='<div class="sp-section"><div class="sp-sec-title">VITALS</div>';
+  html+=vitalRow('TEMPERATURE',cToF(patient.temp).toFixed(1)+'°F <span style="color:var(--muted);font-size:9px">('+patient.temp.toFixed(1)+'°C)</span>',isFever?'var(--red)':'var(--green)');
+  html+=vitalRow('HEART RATE',patient.heartRate+' bpm','var(--orange)');
+  html+=vitalRow('STATUS',patient.status.toUpperCase(),statusCol);
+  html+='</div>';
+  if(isFever) html+='<div style="background:rgba(255,61,61,.08);border-left:2px solid var(--red);padding:6px 10px;margin-bottom:12px;font-family:var(--font-mono);font-size:10px;color:var(--red)">&#127777; FEVER — Temp above 39.5°C</div>';
+  if(patient.conditions&&patient.conditions.length){
+    html+='<div class="sp-section"><div class="sp-sec-title">CONDITIONS</div>';
+    patient.conditions.forEach(function(c){
+      var sc=c.severity>=3?'var(--red)':c.severity>=2?'var(--yellow)':'var(--green)';
+      var bc=c.severity>=3?'rgba(255,61,61,.12)':c.severity>=2?'rgba(255,204,0,.1)':'rgba(0,230,118,.08)';
+      html+='<div style="background:'+bc+';border:1px solid '+sc+';border-radius:2px;padding:6px 8px;margin-bottom:6px">';
+      html+='<div style="display:flex;justify-content:space-between"><span style="font-family:var(--font-mono);font-size:10px;color:'+sc+'">'+c.part.replace(/_/g,' ').toUpperCase()+'</span><span style="font-family:var(--font-mono);font-size:9px;color:var(--muted)">SEV '+c.severity+'/3</span></div>';
+      html+='<div style="font-size:11px;color:var(--text);margin-top:2px">'+c.condition+'</div>';
+      html+='<div class="sev-bar"><div class="sev-fill" style="width:'+Math.round(c.severity/3*100)+'%;background:'+sc+'"></div></div></div>';
+    });
+    html+='</div>';
+  }
+  body.innerHTML=html;
+}
+
+function vitalRow(label,val,col){ return '<div class="vital-row"><span class="vital-key">'+label+'</span><span class="vital-val" style="color:'+col+'">'+val+'</span></div>'; }
+
+function renderEditTab(patient, km, body) {
+  var html='<div class="sp-section"><div class="sp-sec-title">PATIENT INFO</div>';
+  var name=patient?patient.name:'';
+  var species=patient?patient.species:'dog';
+  var id=patient?patient.id:(Date.now()%10000)+'';
+  html+='<input class="vital-edit-input" id="edit-id" style="width:100%;margin-bottom:6px" placeholder="ID" value="'+id+'"/>';
+  html+='<input class="vital-edit-input" id="edit-name" style="width:100%;margin-bottom:6px" placeholder="Patient name" value="'+name+'"/>';
+  html+='<select class="vital-edit-select" id="edit-species" style="width:100%;margin-bottom:6px">';
+  ['dog','cat','rabbit','bird','other'].forEach(function(s){ html+='<option value="'+s+'"'+(species===s?' selected':'')+'>'+s.toUpperCase()+'</option>'; });
+  html+='</select></div>';
+  html+='<div class="sp-section"><div class="sp-sec-title">VITALS</div>';
+  html+='<div class="vital-row"><span class="vital-key">TEMPERATURE</span><div class="vital-edit-wrap"><input class="vital-edit-input" id="edit-temp" type="number" step="0.1" value="'+(patient?patient.temp.toFixed(1):'38.5')+'"/><span style="color:var(--muted);font-size:10px">°C</span></div></div>';
+  html+='<div class="vital-row"><span class="vital-key">HEART RATE</span><div class="vital-edit-wrap"><input class="vital-edit-input" id="edit-hr" type="number" value="'+(patient?patient.heartRate:'100')+'"/><span style="color:var(--muted);font-size:10px">bpm</span></div></div>';
+  html+='<div class="vital-row"><span class="vital-key">STATUS</span><select class="vital-edit-select" id="edit-status"><option value="normal"'+(patient&&patient.status==='normal'?' selected':'')+'>NORMAL</option><option value="warning"'+(patient&&patient.status==='warning'?' selected':'')+'>WARNING</option><option value="critical"'+(patient&&patient.status==='critical'?' selected':'')+'>CRITICAL</option></select></div>';
+  html+='</div>';
+  html+='<div class="sp-section"><div class="sp-sec-title">CONDITIONS <button class="add-cond-btn" style="width:auto;border:none;padding:0 6px;font-size:9px" onclick="addConditionRow()">+ ADD</button></div><div id="conditions-list">';
+  var conds=patient&&patient.conditions?patient.conditions:[];
+  conds.forEach(function(c,i){ html+=conditionRowHTML(c,i); });
+  html+='</div></div>';
+  if(patient){
+    html+='<div class="sp-section" style="border-top:1px solid var(--border);padding-top:10px"><div class="sp-sec-title" style="color:var(--red)">DANGER ZONE</div>';
+    html+='<button class="tbtn danger" style="width:100%;margin-top:4px" onclick="removePatientFromKennel()">&#9673; REMOVE PATIENT FROM KENNEL</button></div>';
+  }
+  html+='<button class="save-patient-btn" onclick="savePatient(\''+km.key+'\')">&#10003; SAVE CHANGES</button>';
+  body.innerHTML=html;
+}
+
+function conditionRowHTML(c,i){
+  var parts=['head','body','left_leg','right_leg','tail','other'];
+  var html='<div class="cond-block" id="cond-block-'+i+'">';
+  html+='<div class="cond-header"><span style="font-family:var(--font-mono);font-size:9px;color:var(--muted)">CONDITION '+(i+1)+'</span><button class="cond-delete-btn" onclick="deleteCondition('+i+')">&#10005;</button></div>';
+  html+='<select class="cond-part-input" id="cond-part-'+i+'" style="margin-bottom:4px">';
+  parts.forEach(function(p){ html+='<option value="'+p+'"'+(c.part===p?' selected':'')+'>'+p.replace(/_/g,' ').toUpperCase()+'</option>'; });
+  html+='</select>';
+  html+='<input class="cond-part-input" id="cond-name-'+i+'" placeholder="Condition description" value="'+(c.condition||'')+'"/>';
+  html+='<div class="cond-sev-row"><span style="font-family:var(--font-mono);font-size:9px;color:var(--muted)">SEV:</span>';
+  [1,2,3].forEach(function(s){
+    html+='<button class="sev-btn'+(c.severity===s?' active-'+s:'')+'" id="cond-sev-'+i+'-'+s+'" onclick="setSeverity('+i+','+s+')">'+s+'</button>';
+  });
+  html+='</div></div>';
+  return html;
+}
+
+function addConditionRow() {
+  var list=document.getElementById('conditions-list');
+  var i=list.querySelectorAll('.cond-block').length;
+  var div=document.createElement('div'); div.innerHTML=conditionRowHTML({part:'body',condition:'',severity:1},i);
+  list.appendChild(div.firstChild);
+}
+
+function setSeverity(condIdx,sev) {
+  [1,2,3].forEach(function(s){
+    var btn=document.getElementById('cond-sev-'+condIdx+'-'+s);
+    if(btn){btn.className='sev-btn'+(s===sev?' active-'+s:'');}
+  });
+}
+
+function deleteCondition(i) {
+  var b=document.getElementById('cond-block-'+i); if(b) b.remove();
+  // Re-index remaining blocks
+  var blocks=document.getElementById('conditions-list').querySelectorAll('.cond-block');
+  blocks.forEach(function(b,idx){b.id='cond-block-'+idx;});
+}
+
+function savePatient(kennelKey) {
+  var id=document.getElementById('edit-id').value.trim();
+  var name=document.getElementById('edit-name').value.trim();
+  var species=document.getElementById('edit-species').value;
+  var temp=parseFloat(document.getElementById('edit-temp').value)||38.5;
+  var hr=parseInt(document.getElementById('edit-hr').value)||100;
+  var status=document.getElementById('edit-status').value;
+  if(!name){alert('Name required');return;}
+
+  // Collect conditions
+  var conds=[];
+  var blocks=document.getElementById('conditions-list').querySelectorAll('.cond-block');
+  blocks.forEach(function(b,i){
+    var part=b.querySelector('[id^="cond-part-"]').value;
+    var condName=b.querySelector('[id^="cond-name-"]').value.trim();
+    var sev=1;
+    [1,2,3].forEach(function(s){var btn=b.querySelector('.sev-btn.active-'+s);if(btn)sev=s;});
+    if(condName) conds.push({part:part,condition:condName,severity:sev});
+  });
+
+  var pid=id||kennelKey;
+  var existed=!!kennelData[kennelKey];
+  kennelData[kennelKey]={id:pid,name:name,species:species,temp:temp,heartRate:hr,status:status,conditions:conds,kennelKey:kennelKey};
+  // Log history
+  var st=getPatientStatus(kennelData[kennelKey]);
+  logHistory(pid, st==='crit'?'crit':st==='warn'?'warn':'info', existed?'EDIT':'ADMIT', existed?'Record updated · '+temp.toFixed(1)+'°C · '+hr+' bpm':'Patient admitted · '+species.toUpperCase()+' · '+temp.toFixed(1)+'°C');
+  if(temp>39.5) logHistory(pid,'crit','FEVER','Temperature '+temp.toFixed(1)+'°C exceeds threshold');
+  refreshAllKennels();
+  if(currentPanelKm) { openPanel(currentPanelKm); currentTab='info'; switchTab('info'); }
+  showToast('Patient saved ✓');
+}
+
+function removePatientFromKennel() {
+  if(!currentPanelKm) return;
+  if(!confirm('Remove patient from this kennel?')) return;
+  var pid = kennelData[currentPanelKm.key] ? kennelData[currentPanelKm.key].id : null;
+  delete kennelData[currentPanelKm.key];
+  if(pid) logHistory(pid, 'warn', 'DISCHG', 'Patient removed from '+currentPanelKm.key);
+  refreshAllKennels();
+  showToast('Patient removed');
+  // Close everything and return cage to shelf
+  closePanel();
+}
+
+// ================================================================
+// LEFT PANEL — HISTORY LOG for selected patient
+// ================================================================
+function openInlineTwin(patient) {
+  if(!patient) return;
+  dtPatient = patient;
+  document.getElementById('dt-panel').classList.add('open');
+  renderHistoryPanel(patient);
+  // Build cat model inside the staged cage in main scene
+  buildStageModel(patient);
+}
+
+function closeDT() {
+  document.getElementById('dt-panel').classList.remove('open');
+  document.getElementById('dt-patient-name').textContent='—';
+  document.getElementById('dt-log-entries').innerHTML='';
+  document.getElementById('dt-log-count').textContent='0 entries';
+  document.getElementById('stage-hud').classList.remove('show');
+  var ctrl=document.getElementById('stage-hud-controls');
+  if(ctrl) ctrl.classList.add('hidden');
+  var zoomFab=document.getElementById('mb-zoom-fab');
+  if(zoomFab) zoomFab.classList.remove('mb-hidden');
+  dtPatient=null;
+  removeStageModel();
+}
+
+function renderHistoryPanel(patient) {
+  document.getElementById('dt-patient-name').textContent=patient.name.toUpperCase()+' · '+patient.species.toUpperCase();
+
+  // Update floating stage HUD (icons above cage)
+  updateStageHUD(patient);
+
+  // Log entries
+  var log=patientHistory[patient.id]||[];
+  document.getElementById('dt-log-count').textContent=log.length+' '+(log.length===1?'entry':'entries');
+  var entries=document.getElementById('dt-log-entries');
+  if(log.length===0){
+    entries.innerHTML='<div class="hist-empty">No history recorded for this patient</div>';
+  } else {
+    var html='';
+    log.slice().reverse().forEach(function(e){
+      var bc=e.type==='crit'?'rgba(255,61,61,.2);color:#ff8080':e.type==='warn'?'rgba(255,204,0,.18);color:#ffcc00':'rgba(0,180,220,.15);color:#00d4ff';
+      html+='<div class="hist-entry">';
+      html+='<span class="hist-time">'+e.time+'</span>';
+      html+='<span class="hist-msg"><span class="hist-badge" style="background:'+bc+'">'+e.tag+'</span>'+e.msg+'</span>';
+      html+='</div>';
+    });
+    entries.innerHTML=html;
+  }
+}
+
+// ================================================================
+// STAGE HUD — floating icons above the center cage in 3D world space
+// ================================================================
+function cToF(c){ return c*9/5+32; }
+
+function updateStageHUD(patient) {
+  var hud=document.getElementById('stage-hud');
+  var ctrl=document.getElementById('stage-hud-controls');
+  var zoomFab=document.getElementById('mb-zoom-fab');
+  if(!patient){
+    hud.classList.remove('show');
+    if(ctrl) ctrl.classList.add('hidden');
+    if(zoomFab) zoomFab.classList.remove('mb-hidden');
+    return;
+  }
+  hud.classList.add('show');
+  if(ctrl) ctrl.classList.remove('hidden');
+  if(zoomFab) zoomFab.classList.add('mb-hidden');
+  document.getElementById('stage-hud-name').textContent = patient.name.toUpperCase()+' · '+patient.species.toUpperCase()+' · #'+patient.id;
+
+  // Render anatomy diagram (X-ray style silhouette)
+  renderAnatomyDiagram(patient);
+
+  var maxSev=0;(patient.conditions||[]).forEach(function(c){if(c.severity>maxSev)maxSev=c.severity;});
+  var isFever=patient.temp>39.5;
+  var stCls=maxSev>=3||isFever?'crit':maxSev>=2?'warn':'ok';
+  var stTxt=maxSev>=3||isFever?'CRITICAL':maxSev>=2?'WARNING':'STABLE';
+
+  var statusBox=document.getElementById('hud-status');
+  statusBox.className='stage-hud-box '+stCls;
+  statusBox.querySelector('.stage-hud-val').textContent=stTxt;
+
+  var tempBox=document.getElementById('hud-temp');
+  tempBox.className='stage-hud-box '+(isFever?'crit':'ok');
+  var tempF=cToF(patient.temp);
+  tempBox.querySelector('.stage-hud-val').textContent=tempF.toFixed(1)+'°F';
+  tempBox.querySelector('.stage-hud-unit').textContent=patient.temp.toFixed(1)+'°C';
+
+  var hrBox=document.getElementById('hud-hr');
+  hrBox.className='stage-hud-box neutral';
+  hrBox.querySelector('.stage-hud-val').textContent=patient.heartRate;
+  hrBox.querySelector('.stage-hud-unit').textContent='BPM';
+}
+
+// ================================================================
+// ANATOMY DIAGRAM — species-aware X-ray style SVG
+// ================================================================
+function renderAnatomyDiagram(patient) {
+  var wrap=document.getElementById('anatomy-svg-wrap');
+  var list=document.getElementById('anatomy-list');
+  if(!patient){ wrap.innerHTML=''; list.innerHTML=''; return; }
+
+  // Build condition map (part → worst severity)
+  var partSev={};
+  (patient.conditions||[]).forEach(function(c){
+    if(!partSev[c.part] || c.severity>partSev[c.part].severity) partSev[c.part]=c;
+  });
+  function zoneClass(part){
+    var c=partSev[part]; if(!c) return '';
+    return c.severity>=3?'crit':c.severity>=2?'warn':'ok';
+  }
+  function zoneAttr(part){
+    var cls=zoneClass(part);
+    return 'class="zone'+(cls?' '+cls:'')+'" data-part="'+part+'" onclick="highlightStagePart(\''+part+'\')"';
+  }
+
+  // Species-specific silhouette templates (top-down/side profile, 70×80 viewBox)
+  var species=(patient.species||'dog').toLowerCase();
+  var svg='';
+
+  if(species==='bird'){
+    // Bird: egg body, round head, wings as left/right, tail fan, head on top
+    svg='<svg class="anatomy-svg" viewBox="0 0 70 80" xmlns="http://www.w3.org/2000/svg">';
+    // Tail (bottom)
+    svg+='<polygon '+zoneAttr('tail')+' points="35,70 25,78 45,78"/>';
+    // Body (egg)
+    svg+='<ellipse '+zoneAttr('body')+' cx="35" cy="50" rx="16" ry="20"/>';
+    // Left wing
+    svg+='<ellipse '+zoneAttr('left_leg')+' cx="18" cy="48" rx="6" ry="14" transform="rotate(-15 18 48)"/>';
+    // Right wing
+    svg+='<ellipse '+zoneAttr('right_leg')+' cx="52" cy="48" rx="6" ry="14" transform="rotate(15 52 48)"/>';
+    // Head (top)
+    svg+='<circle '+zoneAttr('head')+' cx="35" cy="22" r="11"/>';
+    // Beak
+    svg+='<polygon points="35,20 30,14 40,14" fill="#ffaa22" stroke="#cc8800" stroke-width=".5"/>';
+    // Outline
+    svg+='<circle cx="32" cy="20" r="1.2" fill="#0a0a0a"/>';
+    svg+='</svg>';
+  } else if(species==='rabbit'){
+    // Rabbit: upright body, long ears, tail ball
+    svg='<svg class="anatomy-svg" viewBox="0 0 70 80" xmlns="http://www.w3.org/2000/svg">';
+    // Long ears
+    svg+='<ellipse '+zoneAttr('head')+' cx="28" cy="10" rx="3.5" ry="9"/>';
+    svg+='<ellipse '+zoneAttr('head')+' cx="42" cy="10" rx="3.5" ry="9"/>';
+    // Head
+    svg+='<circle '+zoneAttr('head')+' cx="35" cy="23" r="10"/>';
+    // Body (upright oval)
+    svg+='<ellipse '+zoneAttr('body')+' cx="35" cy="48" rx="14" ry="18"/>';
+    // Front legs
+    svg+='<ellipse '+zoneAttr('left_leg')+' cx="25" cy="62" rx="4" ry="8"/>';
+    svg+='<ellipse '+zoneAttr('right_leg')+' cx="45" cy="62" rx="4" ry="8"/>';
+    // Tail ball
+    svg+='<circle '+zoneAttr('tail')+' cx="55" cy="52" r="4"/>';
+    // Eye
+    svg+='<circle cx="32" cy="23" r="1.2" fill="#ff5555"/>';
+    svg+='</svg>';
+  } else if(species==='cat'){
+    // Cat: round head with pointy ears, elongated body, curled tail
+    svg='<svg class="anatomy-svg" viewBox="0 0 70 80" xmlns="http://www.w3.org/2000/svg">';
+    // Ears
+    svg+='<polygon '+zoneAttr('head')+' points="22,8 18,22 28,18"/>';
+    svg+='<polygon '+zoneAttr('head')+' points="48,8 52,22 42,18"/>';
+    // Head
+    svg+='<circle '+zoneAttr('head')+' cx="35" cy="22" r="11"/>';
+    // Body (elongated)
+    svg+='<ellipse '+zoneAttr('body')+' cx="35" cy="48" rx="18" ry="14"/>';
+    // Legs (4) - pair stacked
+    svg+='<ellipse '+zoneAttr('left_leg')+' cx="23" cy="66" rx="3" ry="7"/>';
+    svg+='<ellipse '+zoneAttr('left_leg')+' cx="31" cy="66" rx="3" ry="7"/>';
+    svg+='<ellipse '+zoneAttr('right_leg')+' cx="39" cy="66" rx="3" ry="7"/>';
+    svg+='<ellipse '+zoneAttr('right_leg')+' cx="47" cy="66" rx="3" ry="7"/>';
+    // Curled tail
+    svg+='<path '+zoneAttr('tail')+' d="M53,48 Q62,45 62,55 Q62,65 53,62" fill-rule="evenodd"/>';
+    // Eyes
+    svg+='<circle cx="31" cy="22" r="1.2" fill="#88ff66"/><circle cx="39" cy="22" r="1.2" fill="#88ff66"/>';
+    svg+='</svg>';
+  } else {
+    // DOG (default)
+    svg='<svg class="anatomy-svg" viewBox="0 0 70 80" xmlns="http://www.w3.org/2000/svg">';
+    // Floppy ears
+    svg+='<ellipse '+zoneAttr('head')+' cx="25" cy="18" rx="3" ry="6"/>';
+    svg+='<ellipse '+zoneAttr('head')+' cx="45" cy="18" rx="3" ry="6"/>';
+    // Head with snout
+    svg+='<circle '+zoneAttr('head')+' cx="35" cy="22" r="11"/>';
+    svg+='<ellipse '+zoneAttr('head')+' cx="35" cy="30" rx="5" ry="3"/>';
+    // Body (long)
+    svg+='<ellipse '+zoneAttr('body')+' cx="35" cy="50" rx="20" ry="14"/>';
+    // Legs - 4 stacked pairs
+    svg+='<ellipse '+zoneAttr('left_leg')+' cx="22" cy="68" rx="3" ry="8"/>';
+    svg+='<ellipse '+zoneAttr('left_leg')+' cx="30" cy="68" rx="3" ry="8"/>';
+    svg+='<ellipse '+zoneAttr('right_leg')+' cx="40" cy="68" rx="3" ry="8"/>';
+    svg+='<ellipse '+zoneAttr('right_leg')+' cx="48" cy="68" rx="3" ry="8"/>';
+    // Tail
+    svg+='<ellipse '+zoneAttr('tail')+' cx="58" cy="42" rx="3" ry="6" transform="rotate(-30 58 42)"/>';
+    // Nose
+    svg+='<circle cx="35" cy="31" r="1.3" fill="#0a0a0a"/>';
+    svg+='</svg>';
+  }
+
+  wrap.innerHTML=svg;
+
+  // Conditions list beside the diagram
+  var conditions = patient.conditions||[];
+  if(conditions.length===0){
+    list.innerHTML='<div class="anatomy-list-empty">&#10003; NO CONDITIONS</div>';
+  } else {
+    var rows='';
+    conditions.forEach(function(c){
+      var sevCls=c.severity>=3?'crit':c.severity>=2?'warn':'ok';
+      rows+='<div class="anatomy-row '+sevCls+'" onclick="highlightStagePart(\''+c.part+'\')">';
+      rows+='<span class="dot"></span>';
+      rows+='<span class="lbl">'+c.part.replace(/_/g,' ')+'</span>';
+      rows+='<span class="sev">SEV'+c.severity+'</span>';
+      rows+='</div>';
+    });
+    list.innerHTML=rows;
+  }
+}
+
+// Re-frame the camera so the staged cage sits in the center of the
+// visible canvas band (between topbar and either the bottom-nav or open sheet).
+function applyStageViewOffset(){
+  // Clear during walkout so the pulled-back walkout camera shows the full motion
+  if(!stageActive || walkoutState){
+    if(camera.view && camera.view.enabled) camera.clearViewOffset();
+    return;
+  }
+  var canvas = renderer.domElement;
+  var W = canvas.clientWidth, H = canvas.clientHeight;
+  if(!W || !H) return;
+  var rect = canvas.getBoundingClientRect();
+  var sp = document.getElementById('side-panel');
+  var sheetOpen = sp && sp.classList.contains('open') && !walkoutState;
+  // Visible top edge of canvas in viewport coords
+  var visTop = Math.max(0, rect.top);
+  var visBot;
+  if(sheetOpen){
+    visBot = sp.getBoundingClientRect().top;
+  } else {
+    visBot = rect.bottom;
+  }
+  // Convert to canvas-local coords
+  var localTop = visTop - rect.top;
+  var localBot = visBot - rect.top;
+  var visCenter = (localTop + localBot) / 2;
+  var canvasCenter = H / 2;
+  var dy = canvasCenter - visCenter; // positive shifts content UP
+  camera.setViewOffset(W, H, 0, dy, W, H);
+}
+
+// Position the HUD in screen space by projecting STAGE_CENTER top
+function positionStageHUD(){
+  var hud=document.getElementById('stage-hud');
+  if(!hud.classList.contains('show')) return;
+  if(!stageActive && !stageAnimating){ hud.classList.remove('show'); return; }
+  hud.style.visibility='visible';
+
+  // MOBILE LAYOUT: HUD is a fullscreen overlay with fixed sub-element positions.
+  // We only need to dynamically position the control strip so it sits just
+  // above the open bottom sheet (if any), else above the bottom nav.
+  var controls = document.getElementById('stage-hud-controls');
+  if(controls){
+    var sp = document.getElementById('side-panel');
+    var bottomBase;
+    if(sp && sp.classList.contains('open')){
+      var spRect = sp.getBoundingClientRect();
+      bottomBase = (window.innerHeight - spRect.top) + 8;
+    } else {
+      var nav = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mb-bottomnav')) || 62;
+      var safeBottom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom')) || 0;
+      bottomBase = nav + safeBottom + 12;
+    }
+    controls.style.bottom = bottomBase + 'px';
+  }
+}
+
+// ================================================================
+// STAGE CONTROL BUTTONS
+// ================================================================
+function clearStage() {
+  // Force-close everything, return cage no matter what state
+  if(!stageKm){
+    // Fallback: close panels anyway
+    closePanel(); return;
+  }
+  closePanel();
+}
+
+function rotateStage(direction) {
+  // Snap-rotate the stage cage by 90 degrees increments
+  if(!stageKm||!stageActive) return;
+  stageRotY += direction * Math.PI/2;
+}
+
+// ----- WALKOUT ANIMATION -----
+// Patient walks out of the cage, rotates 360°, walks back in
+var walkoutState = null; // null | 'walking_out' | 'turning' | 'walking_back'
+var walkoutT = 0;
+
+function startWalkout() {
+  // INSPECT now triggers a slow 360° orbit of the patient model, in place.
+  if(!stageModel||!stageKm||walkoutState) return;
+  stageRotY = 0;
+  stageRotX = 0;
+  stageKm.group.rotation.set(0, 0, 0);
+  walkoutState = 'orbiting';
+  walkoutT = 0;
+  logHistory(dtPatient.id,'info','INSPECT','360° inspection orbit');
+  if(currentPanelKm) renderTab(currentPanelKm);
+  renderHistoryPanel(dtPatient);
+}
+
+function updateWalkout(dt) {
+  if(!walkoutState||!stageModel) return;
+  walkoutT += dt;
+  var orbitDuration = 8.0; // slow, full turn in 8 seconds
+  if(walkoutState === 'orbiting'){
+    var t = Math.min(1, walkoutT / orbitDuration);
+    // Linear angular speed (no easing) so the turn feels steady, not rushed in the middle.
+    stageModel.rotation.y = t * Math.PI * 2;
+    if(t >= 1){
+      stageModel.rotation.y = 0;
+      walkoutState = null;
+      walkoutT = 0;
+    }
+  }
+}
+
+function addNoteFromPanel() {
+  if(!dtPatient) return;
+  var note=prompt('Add clinical note for '+dtPatient.name+':');
+  if(!note||!note.trim()) return;
+  logHistory(dtPatient.id,'info','NOTE',note.trim());
+  renderHistoryPanel(dtPatient);
+  // Also refresh right panel if on info tab
+  if(currentPanelKm) renderTab(currentPanelKm);
+}
+
+// ================================================================
+// STAGE MODEL — cat/dog model built into main scene, attached to staged kennel
+// ================================================================
+var stageModel = null;        // THREE.Group containing the animal
+var stageModelParts = {};     // partName -> [meshes] (for highlighting)
+
+function removeStageModel() {
+  if(stageModel && stageModel.parent) stageModel.parent.remove(stageModel);
+  stageModel = null;
+  stageModelParts = {};
+  walkoutState = null;
+  walkoutT = 0;
+}
+
+function buildStageModel(patient) {
+  removeStageModel();
+  if(!patient || !stageKm) return;
+
+  var condMap={};
+  if(patient.conditions) patient.conditions.forEach(function(c){ condMap[c.part]={severity:c.severity,condition:c.condition}; });
+
+  function getPartColor(partName){
+    var c=condMap[partName];
+    if(!c) return {col:0x88c8e0,emi:0x1a4050,ei:0.35};
+    if(c.severity>=3) return {col:0x9a2020,emi:EMIT_CRIT,ei:0.7};
+    if(c.severity>=2) return {col:0x8a5500,emi:EMIT_WARN,ei:0.6};
+    return {col:0x1e7a50,emi:EMIT_OK,ei:0.4};
+  }
+  function mkMat(partName){
+    var s=getPartColor(partName);
+    return new THREE.MeshStandardMaterial({color:s.col,roughness:0.65,metalness:0.1,emissive:new THREE.Color(s.emi),emissiveIntensity:s.ei});
+  }
+
+  var model = new THREE.Group();
+  model.position.set(0, -WARD_CONFIG.cageH/2 + 0.15, 0);
+  stageModelParts = {};
+
+  // Dispatch to species-specific builder
+  var species = (patient.species||'dog').toLowerCase();
+  if(species==='cat')         buildCatGeometry(model, mkMat);
+  else if(species==='rabbit') buildRabbitGeometry(model, mkMat);
+  else if(species==='bird')   buildBirdGeometry(model, mkMat);
+  else                        buildDogGeometry(model, mkMat); // dog + fallback
+
+  // Attach to kennel
+  stageKm.group.add(model);
+  stageModel = model;
+}
+
+// ----- DOG: longer snout, floppy ears, wagging tail -----
+function buildDogGeometry(model, mkMat) {
+  var S=0.75; model.scale.set(S,S,S);
+
+  // BODY — longer, lower profile than cat
+  var body=new THREE.Mesh(new THREE.SphereGeometry(0.5,16,12), mkMat('body'));
+  body.scale.set(1.5,0.85,1.0); body.position.set(0,0.42,0);
+  stageModelParts['body']=[body]; model.add(body);
+
+  // HEAD — larger, more elongated
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.35,16,12), mkMat('head'));
+  head.scale.set(1,0.95,1.1); head.position.set(0,0.78,0.7);
+  stageModelParts['head']=[head]; model.add(head);
+
+  // SNOUT — long and pronounced
+  var snout=new THREE.Mesh(new THREE.SphereGeometry(0.17,10,10), new THREE.MeshStandardMaterial({color:0x443322,roughness:0.8}));
+  snout.scale.set(0.9,0.65,1.3); snout.position.set(0,0.68,1.0); model.add(snout);
+
+  // EARS — floppy rectangles, sitting OUTSIDE the head ellipsoid (eff radii ~0.35×0.33×0.39)
+  // so they're actually visible. Tilt drapes them outward away from the body.
+  [-0.30,0.30].forEach(function(ex){
+    var ear=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.30,0.07), mkMat('head'));
+    ear.position.set(ex,0.92,0.55);
+    ear.rotation.z=ex>0?0.45:-0.45;   // top tilts outward (floppy droop)
+    ear.rotation.x=-0.15;              // slight forward tilt
+    stageModelParts['head'].push(ear); model.add(ear);
+  });
+
+  // EYES — sit clearly outside the head sphere (head front ~Z=1.085) to avoid z-fighting
+  [-0.14,0.14].forEach(function(ex){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8),
+      new THREE.MeshStandardMaterial({color:0x1a1208,roughness:0.3,emissive:new THREE.Color(0x221608),emissiveIntensity:0.4}));
+    eye.position.set(ex,0.88,1.10); model.add(eye);
+  });
+
+  // NOSE — big black dog nose
+  var nose=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8),
+    new THREE.MeshStandardMaterial({color:0x0a0a0a,roughness:0.3}));
+  nose.position.set(0,0.73,1.16); model.add(nose);
+
+  // LEGS
+  addLegs(model, mkMat, 0.07, 0.45, 0.25, 0.32);
+
+  // TAIL — thick, wagging
+  stageModelParts['tail']=[];
+  var tailCurve=new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0,0.5,-0.55),
+    new THREE.Vector3(0,0.7,-0.8),
+    new THREE.Vector3(0,0.95,-0.95),
+  ]);
+  var tail=new THREE.Mesh(new THREE.TubeGeometry(tailCurve,14,0.07,8,false), mkMat('tail'));
+  stageModelParts['tail'].push(tail); model.add(tail);
+}
+
+// ----- CAT: round head, pointy ears, curled tail -----
+function buildCatGeometry(model, mkMat) {
+  var S=0.75; model.scale.set(S,S,S);
+
+  // BODY — compact, curvy
+  var body=new THREE.Mesh(new THREE.SphereGeometry(0.5,16,12), mkMat('body'));
+  body.scale.set(1.3,0.95,1.0); body.position.set(0,0.45,0);
+  stageModelParts['body']=[body]; model.add(body);
+
+  // HEAD — round
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.32,16,12), mkMat('head'));
+  head.position.set(0,0.82,0.65);
+  stageModelParts['head']=[head]; model.add(head);
+
+  // SNOUT — small
+  var snout=new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8), new THREE.MeshStandardMaterial({color:0x553344,roughness:0.8}));
+  snout.scale.set(1,0.7,0.9); snout.position.set(0,0.76,0.92); model.add(snout);
+
+  // EARS — pointy triangle cones. Lifted so the cone BASE sits above the head sphere
+  // (head Y=0.82, radius 0.32 → top at 1.14). Base at y≈1.10, tip at y≈1.35.
+  [-0.18,0.18].forEach(function(ex){
+    var ear=new THREE.Mesh(new THREE.ConeGeometry(0.10,0.28,4), mkMat('head'));
+    ear.position.set(ex,1.24,0.50);
+    ear.rotation.x=-0.15;
+    ear.rotation.z=ex>0?-0.25:0.25;
+    stageModelParts['head'].push(ear); model.add(ear);
+  });
+
+  // EYES — bright green, pushed outside head sphere (radius 0.32, head Z=0.65 → front=0.97)
+  [-0.12,0.12].forEach(function(ex){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(0.05,8,8),
+      new THREE.MeshStandardMaterial({color:0x88ff66,emissive:new THREE.Color(0x336611),emissiveIntensity:0.9}));
+    eye.position.set(ex,0.88,1.00); model.add(eye);
+  });
+
+  // NOSE — pink
+  var nose=new THREE.Mesh(new THREE.SphereGeometry(0.03,6,6),
+    new THREE.MeshStandardMaterial({color:0xff88aa,emissive:new THREE.Color(0xaa3366),emissiveIntensity:0.5}));
+  nose.position.set(0,0.78,1.02); model.add(nose);
+
+  // WHISKERS
+  [-1,1].forEach(function(side){
+    [0,0.05,-0.05].forEach(function(yo){
+      var w=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.005,0.25,4),
+        new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.5}));
+      w.position.set(side*0.18,0.76+yo,0.95);
+      w.rotation.z=Math.PI/2;
+      w.rotation.y=side*0.2;
+      model.add(w);
+    });
+  });
+
+  // LEGS
+  addLegs(model, mkMat, 0.07, 0.45, 0.22, 0.28);
+
+  // TAIL — curled upward
+  stageModelParts['tail']=[];
+  var tailCurve=new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0,0.45,-0.5),
+    new THREE.Vector3(0,0.3,-0.75),
+    new THREE.Vector3(0,0.65,-0.9),
+    new THREE.Vector3(0,0.95,-0.75),
+    new THREE.Vector3(0,1.0,-0.5),
+  ]);
+  var tail=new THREE.Mesh(new THREE.TubeGeometry(tailCurve,16,0.055,8,false), mkMat('tail'));
+  stageModelParts['tail'].push(tail); model.add(tail);
+}
+
+// ----- RABBIT: long ears, short front legs, fluffy tail ball -----
+function buildRabbitGeometry(model, mkMat) {
+  var S=0.7; model.scale.set(S,S,S);
+
+  // BODY — rounder, more upright
+  var body=new THREE.Mesh(new THREE.SphereGeometry(0.45,16,12), mkMat('body'));
+  body.scale.set(1.1,1.2,0.95); body.position.set(0,0.45,0);
+  stageModelParts['body']=[body]; model.add(body);
+
+  // HEAD — smaller
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.28,16,12), mkMat('head'));
+  head.position.set(0,0.9,0.5);
+  stageModelParts['head']=[head]; model.add(head);
+
+  // SNOUT — tiny
+  var snout=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,8), new THREE.MeshStandardMaterial({color:0x998877,roughness:0.8}));
+  snout.scale.set(1,0.8,0.9); snout.position.set(0,0.83,0.72); model.add(snout);
+
+  // LONG EARS — tall cylinders rising high
+  [-0.1,0.1].forEach(function(ex){
+    var ear=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.04,0.5,8), mkMat('head'));
+    ear.scale.set(1,1,0.4);
+    ear.position.set(ex,1.35,0.4);
+    ear.rotation.x=0.15;
+    ear.rotation.z=ex>0?-0.1:0.1;
+    stageModelParts['head'].push(ear); model.add(ear);
+    // Pink inner ear
+    var inner=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.025,0.45,6),
+      new THREE.MeshStandardMaterial({color:0xff99bb,roughness:0.6}));
+    inner.scale.set(1,1,0.3);
+    inner.position.set(ex,1.35,0.42);
+    inner.rotation.x=0.15;
+    inner.rotation.z=ex>0?-0.1:0.1;
+    model.add(inner);
+  });
+
+  // EYES — red, pushed outside head sphere (radius 0.28, head Z=0.5 → front=0.78)
+  [-0.11,0.11].forEach(function(ex){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(0.04,8,8),
+      new THREE.MeshStandardMaterial({color:0xff5555,emissive:new THREE.Color(0x881111),emissiveIntensity:0.8}));
+    eye.position.set(ex,0.94,0.80); model.add(eye);
+  });
+
+  // NOSE — pink
+  var nose=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,6),
+    new THREE.MeshStandardMaterial({color:0xff88aa,emissive:new THREE.Color(0xaa3366),emissiveIntensity:0.5}));
+  nose.position.set(0,0.84,0.78); model.add(nose);
+
+  // BUCK TEETH
+  var teeth=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.04,0.03),
+    new THREE.MeshStandardMaterial({color:0xffffee,roughness:0.5}));
+  teeth.position.set(0,0.78,0.76); model.add(teeth);
+
+  // LEGS — short front, big back
+  if(!stageModelParts['left_leg']) stageModelParts['left_leg']=[];
+  if(!stageModelParts['right_leg']) stageModelParts['right_leg']=[];
+  // Front legs - short
+  [['left_leg',-0.18, 0.22],['right_leg', 0.18, 0.22]].forEach(function(lp){
+    var leg=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.05,0.3,8), mkMat(lp[0]));
+    leg.position.set(lp[1],0.12,lp[2]);
+    stageModelParts[lp[0]].push(leg); model.add(leg);
+  });
+  // Back legs - big
+  [['left_leg',-0.2,-0.28],['right_leg', 0.2,-0.28]].forEach(function(lp){
+    var leg=new THREE.Mesh(new THREE.SphereGeometry(0.14,10,8), mkMat(lp[0]));
+    leg.scale.set(1,0.7,1.6); leg.position.set(lp[1],0.08,lp[2]);
+    stageModelParts[lp[0]].push(leg); model.add(leg);
+  });
+
+  // TAIL — fluffy ball
+  stageModelParts['tail']=[];
+  var tail=new THREE.Mesh(new THREE.SphereGeometry(0.12,10,8),
+    new THREE.MeshStandardMaterial({color:0xf0f0f0,roughness:0.9}));
+  tail.position.set(0,0.55,-0.5);
+  stageModelParts['tail'].push(tail); model.add(tail);
+}
+
+// ----- BIRD: beak, wings, small feet, perched look -----
+function buildBirdGeometry(model, mkMat) {
+  var S=0.65; model.scale.set(S,S,S);
+
+  // BODY — egg shape
+  var body=new THREE.Mesh(new THREE.SphereGeometry(0.42,16,12), mkMat('body'));
+  body.scale.set(0.9,1.2,1.0); body.position.set(0,0.55,0);
+  stageModelParts['body']=[body]; model.add(body);
+
+  // HEAD — smaller sphere on top
+  var head=new THREE.Mesh(new THREE.SphereGeometry(0.26,16,12), mkMat('head'));
+  head.position.set(0,1.1,0.15);
+  stageModelParts['head']=[head]; model.add(head);
+
+  // BEAK — two cones (upper/lower)
+  var beak=new THREE.Mesh(new THREE.ConeGeometry(0.08,0.22,4),
+    new THREE.MeshStandardMaterial({color:0xffaa22,roughness:0.4,metalness:0.2}));
+  beak.rotation.x=Math.PI/2;
+  beak.position.set(0,1.08,0.45);
+  model.add(beak);
+
+  // EYES — small bright, pushed outside head sphere (radius 0.26, head Z=0.15 → front=0.41)
+  [-0.10,0.10].forEach(function(ex){
+    var eye=new THREE.Mesh(new THREE.SphereGeometry(0.04,8,8),
+      new THREE.MeshStandardMaterial({color:0x0a0a0a,roughness:0.3,emissive:new THREE.Color(0x111111),emissiveIntensity:0.3}));
+    eye.position.set(ex,1.16,0.42); model.add(eye);
+    // white highlight (sits on the eye sphere surface)
+    var hl=new THREE.Mesh(new THREE.SphereGeometry(0.012,6,6),
+      new THREE.MeshStandardMaterial({color:0xffffff,emissive:new THREE.Color(0xffffff),emissiveIntensity:1}));
+    hl.position.set(ex+0.01,1.18,0.45); model.add(hl);
+  });
+
+  // WINGS — treat as left_leg/right_leg for raycast (or map to body) - use head side for simplicity
+  if(!stageModelParts['left_leg']) stageModelParts['left_leg']=[];
+  if(!stageModelParts['right_leg']) stageModelParts['right_leg']=[];
+  [-1,1].forEach(function(side){
+    var wing=new THREE.Mesh(new THREE.SphereGeometry(0.3,12,8),
+      new THREE.MeshStandardMaterial({
+        color: side<0 ? mkMat('left_leg').color.getHex() : mkMat('right_leg').color.getHex(),
+        roughness:0.7,
+        emissive: side<0 ? mkMat('left_leg').emissive : mkMat('right_leg').emissive,
+        emissiveIntensity: side<0 ? mkMat('left_leg').emissiveIntensity : mkMat('right_leg').emissiveIntensity,
+      }));
+    wing.scale.set(0.2,0.9,0.6);
+    wing.position.set(side*0.42,0.55,0);
+    wing.rotation.z=side*0.15;
+    if(side<0) stageModelParts['left_leg'].push(wing);
+    else stageModelParts['right_leg'].push(wing);
+    model.add(wing);
+  });
+
+  // FEET — small orange
+  [-0.12,0.12].forEach(function(ex){
+    var foot=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.04,0.15),
+      new THREE.MeshStandardMaterial({color:0xffaa22,roughness:0.6}));
+    foot.position.set(ex,0.08,0.05); model.add(foot);
+    var leg=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.18,6),
+      new THREE.MeshStandardMaterial({color:0xffaa22,roughness:0.6}));
+    leg.position.set(ex,0.2,0.05); model.add(leg);
+  });
+
+  // TAIL — fan of feathers
+  stageModelParts['tail']=[];
+  [-0.15,0,0.15].forEach(function(ex){
+    var feather=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.04,0.35), mkMat('tail'));
+    feather.position.set(ex,0.5,-0.45);
+    feather.rotation.y=ex*0.8;
+    stageModelParts['tail'].push(feather); model.add(feather);
+  });
+}
+
+// Shared leg helper for dog/cat
+function addLegs(model, mkMat, radius, length, xOff, zOff) {
+  if(!stageModelParts['left_leg']) stageModelParts['left_leg']=[];
+  if(!stageModelParts['right_leg']) stageModelParts['right_leg']=[];
+  var legDefs=[
+    {name:'left_leg',  x:-xOff, z: zOff},
+    {name:'left_leg',  x:-xOff, z:-zOff},
+    {name:'right_leg', x: xOff, z: zOff},
+    {name:'right_leg', x: xOff, z:-zOff},
+  ];
+  legDefs.forEach(function(lp){
+    var leg=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius*0.85,length,8), mkMat(lp.name));
+    leg.position.set(lp.x, length/2 - 0.05 + 0.03, lp.z);
+    stageModelParts[lp.name].push(leg); model.add(leg);
+    var paw=new THREE.Mesh(new THREE.SphereGeometry(radius*1.3,8,6), mkMat(lp.name));
+    paw.scale.set(1,0.55,1.2); paw.position.set(lp.x,-0.04,lp.z);
+    stageModelParts[lp.name].push(paw); model.add(paw);
+  });
+}
+
+function highlightStagePart(partName) {
+  Object.entries(stageModelParts).forEach(function(kv){
+    kv[1].forEach(function(mesh){
+      if(!mesh.material) return;
+      if(kv[0]===partName){
+        mesh.material.emissive = new THREE.Color(0x00aaff);
+        mesh.material.emissiveIntensity = 1.0;
+      } else {
+        var restoredEmi=0x000000, restoredInt=0;
+        if(dtPatient && dtPatient.conditions){
+          var c=dtPatient.conditions.find(function(cc){return cc.part===kv[0];});
+          if(c){
+            restoredEmi = c.severity>=3?EMIT_CRIT:c.severity>=2?EMIT_WARN:EMIT_OK;
+            restoredInt = c.severity>=2?0.5:0.3;
+          }
+        }
+        mesh.material.emissive = new THREE.Color(restoredEmi);
+        mesh.material.emissiveIntensity = restoredInt;
+      }
+    });
+  });
+}
+
+// Animate stage model breathing/tail-wag in main loop
+function updateStageModelAnim(t) {
+  if(!stageModel||!dtPatient) return;
+  var breathRate = dtPatient.temp>39.5 ? 3.5 : 1.8;
+  if(stageModelParts.body && stageModelParts.body[0])
+    stageModelParts.body[0].position.y = 0.45 + Math.sin(t*breathRate)*0.015;
+  if(stageModelParts.head && stageModelParts.head[0])
+    stageModelParts.head[0].position.y = 0.8 + Math.sin(t*breathRate)*0.015;
+  if(stageModelParts.tail && stageModelParts.tail[0])
+    stageModelParts.tail[0].rotation.y = Math.sin(t*(dtPatient.temp>39.5?4:2))*0.2;
+  // Critical pulse
+  if(dtPatient.conditions) {
+    dtPatient.conditions.forEach(function(c){
+      if(c.severity>=3 && stageModelParts[c.part]) {
+        var pulse = 0.35 + Math.abs(Math.sin(t*3))*0.7;
+        stageModelParts[c.part].forEach(function(m){ if(m.material) m.material.emissiveIntensity=pulse; });
+      }
+    });
+  }
+}
+
+
+// ================================================================
+// PANEL UTILS
+// ================================================================
+function closePanel() {
+  document.getElementById('side-panel').classList.remove('open');
+  closeDT();
+  selectedKennel=null; currentPanelKm=null;
+  // Return kennel to its shelf position
+  if(stageKm) {
+    stageLerpT=0;
+    stageDir=-1;
+    stageAnimating=true;
+  }
+  refreshAllKennels();
+  // Reset camera to overview after return animation
+  setTimeout(function(){
+    camTarget.set(0,1.5,0);
+    camState.dist=17; camState.v=0.55; camState.h=0.4;
+    updateCamera();
+  }, 600);
+  document.getElementById('bc-side').textContent='—';
+  document.getElementById('bc-row').textContent='—';
+  document.getElementById('bc-col').textContent='—';
+}
+
+function updateBreadcrumb(side,row,col) {
+  document.getElementById('bc-side').textContent=side;
+  document.getElementById('bc-row').textContent='ROW '+row;
+  document.getElementById('bc-col').textContent='COL '+col;
+}
+
+// ================================================================
+// HISTORY LOG
+// ================================================================
+function nowStr(){
+  var n=new Date();
+  return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+' '+n.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+}
+function logHistory(patientId, type, tag, msg) {
+  if(!patientHistory[patientId]) patientHistory[patientId]=[];
+  patientHistory[patientId].push({time:nowStr(), type:type, tag:tag, msg:msg});
+  // Keep last 30 entries
+  if(patientHistory[patientId].length>30) patientHistory[patientId].shift();
+}
+function addHistoryNote(patientId) {
+  var note=prompt('Add note for patient log:');
+  if(!note||!note.trim()) return;
+  logHistory(patientId, 'info', 'NOTE', note.trim());
+  if(currentPanelKm) renderTab(currentPanelKm);
+  // Refresh left history panel if showing this patient
+  if(dtPatient && dtPatient.id===patientId) renderHistoryPanel(dtPatient);
+}
+
+function showToast(msg) {
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--cyan);color:var(--cyan);font-family:var(--font-mono);font-size:11px;padding:8px 18px;border-radius:2px;z-index:9000;opacity:0;transition:opacity .3s;letter-spacing:1px';
+  t.textContent=msg; document.body.appendChild(t);
+  requestAnimationFrame(function(){t.style.opacity='1';setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},400);},1800);});
+}
+
+// ================================================================
+// SEARCH
+// ================================================================
+function onSearch(val) {
+  var results=document.getElementById('search-results');
+  if(!val||val.length<1){results.style.display='none';return;}
+  val=val.toLowerCase();
+  var matches=[];
+  Object.values(kennelData).forEach(function(p){
+    if(p.name.toLowerCase().indexOf(val)>=0||p.id.toLowerCase().indexOf(val)>=0||p.species.toLowerCase().indexOf(val)>=0){
+      matches.push(p);
+    }
+  });
+  if(!matches.length){results.style.display='none';return;}
+  var html='';
+  matches.slice(0,8).forEach(function(p){
+    var maxSev=0;(p.conditions||[]).forEach(function(c){if(c.severity>maxSev)maxSev=c.severity;});
+    var sc=maxSev>=3||p.temp>39.5?'#ff3d3d':maxSev>=2?'#ffcc00':'#00e676';
+    html+='<div class="search-result-item" onclick="jumpToPatient(\''+p.kennelKey+'\')">';
+    html+='<div><div class="sri-name">'+p.name+'</div><div class="sri-loc">'+p.species.toUpperCase()+' · '+p.kennelKey+'</div></div>';
+    html+='<div style="font-family:var(--font-mono);font-size:9px;color:'+sc+'">'+p.temp.toFixed(1)+'°C</div>';
+    html+='</div>';
+  });
+  results.innerHTML=html; results.style.display='block';
+}
+
+function searchKeyDown(e){if(e.key==='Enter')execSearch();}
+function execSearch(){
+  var val=document.getElementById('search-input').value.trim().toLowerCase();
+  if(!val) return;
+  var match=Object.values(kennelData).find(function(p){return p.name.toLowerCase().indexOf(val)>=0||p.id.toLowerCase().indexOf(val)>=0;});
+  if(match){jumpToPatient(match.kennelKey);} else{showToast('No patient found: '+val);}
+}
+
+function jumpToPatient(kennelKey) {
+  document.getElementById('search-results').style.display='none';
+  document.getElementById('search-input').value='';
+  var km=kennelMeshes.find(function(k){return k.key===kennelKey;});
+  if(!km) return;
+  selectedKennel=km; focusKennel(km); refreshAllKennels();
+  openPanel(km); updateBreadcrumb(km.side,km.row+1,km.col+1);
+}
+
+// ================================================================
+// FILTER BY STATUS
+// ================================================================
+function filterByStatus(status) {
+  if(filterStatus===status) filterStatus=null;
+  else filterStatus=status;
+  refreshAllKennels();
+}
+
+// ================================================================
+// NAV DROPDOWNS
+// ================================================================
+function setupNavDropdowns() {
+  var cfg=WARD_CONFIG;
+  var rowSel=document.getElementById('sel-row');
+  var colSel=document.getElementById('sel-col');
+  for(var r=0;r<cfg.rows;r++){var o=document.createElement('option');o.value=r;o.textContent='ROW '+(r+1);rowSel.appendChild(o);}
+  for(var c=0;c<cfg.cols;c++){var o2=document.createElement('option');o2.value=c;o2.textContent='COL '+(c+1);colSel.appendChild(o2);}
+}
+
+function navSelect() {
+  var side=document.getElementById('sel-side').value;
+  var row=document.getElementById('sel-row').value;
+  var col=document.getElementById('sel-col').value;
+  kennelMeshes.forEach(function(km){
+    var match=true;
+    if(side&&km.side!==side)match=false;
+    if(row!==''&&km.row!==parseInt(row))match=false;
+    if(col!==''&&km.col!==parseInt(col))match=false;
+    if(match&&(side||row!==''||col!=='')){
+      km.interior.material.emissiveIntensity=0.8;
+      setTimeout(function(){updateKennelVisual(km,kennelData[km.key]||null,false);},600);
+    }
+  });
+  if(side&&row!==''&&col!==''){
+    var target=kennelMeshes.find(function(km){return km.side===side&&km.row===parseInt(row)&&km.col===parseInt(col)&&km.level===0;});
+    if(target){selectedKennel=target;focusKennel(target);openPanel(target);updateBreadcrumb(target.side,target.row+1,target.col+1);refreshAllKennels();}
+  }
+}
+
+// ================================================================
+// STATS
+// ================================================================
+function updateStats() {
+  var ok=0,warn=0,crit=0,empty=0;
+  kennelMeshes.forEach(function(km){
+    var p=kennelData[km.key]||null;
+    var st=getPatientStatus(p);
+    if(st==='empty')empty++;
+    else if(st==='crit')crit++;
+    else if(st==='warn')warn++;
+    else ok++;
+  });
+  document.getElementById('st-ok').textContent=ok+' OK';
+  document.getElementById('st-warn').textContent=warn+' WARN';
+  document.getElementById('st-crit').textContent=crit+' CRIT';
+  document.getElementById('st-empty').textContent=empty+' EMPTY';
+  updateNotifBadge(crit, warn);
+}
+
+// ================================================================
+// NOTIFICATIONS — bell in topbar
+// ================================================================
+function updateNotifBadge(crit, warn) {
+  var notif=document.getElementById('tb-notif');
+  var count=document.getElementById('tb-notif-count');
+  var total=crit+warn;
+  count.textContent=total;
+  notif.classList.toggle('alert', crit>0);
+  if(total===0) count.style.display='none';
+}
+
+function toggleNotifPanel(e) {
+  e.stopPropagation();
+  var panel=document.getElementById('tb-notif-panel');
+  var showing=panel.classList.contains('show');
+  if(!showing){ renderNotifPanel(); }
+  panel.classList.toggle('show');
+}
+
+function renderNotifPanel() {
+  var panel=document.getElementById('tb-notif-panel');
+  var crits=[], warns=[];
+  Object.values(kennelData).forEach(function(p){
+    var st=getPatientStatus(p);
+    if(st==='crit') crits.push(p);
+    else if(st==='warn') warns.push(p);
+  });
+  var html='<div class="notif-header"><span>&#9888; ALERTS</span><span style="color:var(--muted)">'+(crits.length+warns.length)+' active</span></div>';
+  if(crits.length+warns.length===0){
+    html+='<div class="notif-empty">&#10003; All patients stable</div>';
+  } else {
+    crits.forEach(function(p){
+      html+='<div class="notif-item" onclick="jumpToPatient(\''+p.kennelKey+'\');document.getElementById(\'tb-notif-panel\').classList.remove(\'show\')">';
+      html+='<div class="notif-dot crit"></div>';
+      html+='<div class="notif-body"><div class="notif-name">'+p.name+' · CRITICAL</div>';
+      html+='<div class="notif-meta">'+p.species.toUpperCase()+' · '+cToF(p.temp).toFixed(1)+'°F · '+p.heartRate+'bpm · '+p.kennelKey+'</div>';
+      html+='</div></div>';
+    });
+    warns.forEach(function(p){
+      html+='<div class="notif-item" onclick="jumpToPatient(\''+p.kennelKey+'\');document.getElementById(\'tb-notif-panel\').classList.remove(\'show\')">';
+      html+='<div class="notif-dot warn"></div>';
+      html+='<div class="notif-body"><div class="notif-name">'+p.name+' · WARNING</div>';
+      html+='<div class="notif-meta">'+p.species.toUpperCase()+' · '+cToF(p.temp).toFixed(1)+'°F · '+p.heartRate+'bpm · '+p.kennelKey+'</div>';
+      html+='</div></div>';
+    });
+  }
+  panel.innerHTML=html;
+}
+
+// Close notif panel on outside click
+document.addEventListener('click', function(e){
+  if(!e.target.closest('#tb-notif')) document.getElementById('tb-notif-panel').classList.remove('show');
+});
+
+// ================================================================
+// MINIMAP — both stack levels shown
+// Layout per row-slot: [LV1 top strip] [LV0 bottom strip]
+// ================================================================
+function updateMinimap() {
+  var cvs=document.getElementById('minimap-canvas');
+  var ctx=cvs.getContext('2d');
+  var W=cvs.width, H=cvs.height;
+  ctx.fillStyle='#07090f'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#0d1828'; ctx.fillRect(W/2-14,0,28,H); // aisle
+
+  var cfg=WARD_CONFIG;
+  var cw=Math.floor((W/2-20)/cfg.cols);
+  // Each row-slot is split into 2 level cells stacked vertically
+  var slotH=Math.floor((H-10)/cfg.rows);
+  var lh0=Math.floor(slotH*0.55); // LV0 (lower) takes 55%
+  var lh1=slotH-lh0-1;             // LV1 (upper) takes rest
+
+  minimapCells=[];
+
+  kennelMeshes.forEach(function(km){
+    var p=kennelData[km.key]||null;
+    var st=getPatientStatus(p);
+    var col=st==='crit'?'#8b0000':st==='warn'?'#6b5000':st==='ok'?'#0d3321':'#1a2840';
+    var isLeft=km.side==='LEFT';
+    var bx=isLeft?(W/2-16-cw)-km.col*(cw+1):(W/2+16)+km.col*(cw+1);
+    var slotY=4+km.row*(slotH+1);
+    // LV1 is drawn on top of the slot, LV0 on bottom
+    var by=km.level===1 ? slotY : slotY+lh1+1;
+    var bh=km.level===1 ? lh1 : lh0;
+
+    ctx.fillStyle=col; ctx.fillRect(bx,by,cw-1,bh);
+
+    // Level label for LV1
+    if(km.level===1){
+      ctx.fillStyle='rgba(0,180,220,0.4)'; ctx.fillRect(bx,by,3,bh);
+    }
+
+    // Selection ring
+    if(selectedKennel&&selectedKennel.key===km.key){
+      ctx.strokeStyle='#00d4ff'; ctx.lineWidth=1.5; ctx.strokeRect(bx,by,cw-1,bh);
+    }
+    minimapCells.push({key:km.key,x:bx,y:by,w:cw-1,h:bh});
+
+    // Status dot
+    if(p&&st!=='empty'){
+      ctx.fillStyle=st==='crit'?'#ff3d3d':st==='warn'?'#ffcc00':'#00e676';
+      ctx.beginPath(); ctx.arc(bx+(cw-1)/2,by+bh/2,1.5,0,Math.PI*2); ctx.fill();
+    }
+  });
+
+  // Level legend
+  ctx.fillStyle='rgba(0,180,220,0.5)'; ctx.fillRect(3,H-18,3,6);
+  ctx.fillStyle='rgba(80,80,80,0.8)'; ctx.font='7px monospace'; ctx.fillText('L2',7,H-13);
+  ctx.fillStyle='rgba(80,80,80,0.8)'; ctx.fillRect(3,H-10,3,6);
+  ctx.fillStyle='rgba(80,80,80,0.8)'; ctx.fillText('L1',7,H-5);
+}
+
+function onMinimapClick(e) {
+  var cvs=document.getElementById('minimap-canvas');
+  var rect=cvs.getBoundingClientRect();
+  var mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  // Scale to canvas coords
+  var sx=mx*(cvs.width/rect.width), sy=my*(cvs.height/rect.height);
+  for(var i=0;i<minimapCells.length;i++){
+    var c=minimapCells[i];
+    if(sx>=c.x&&sx<=c.x+c.w&&sy>=c.y&&sy<=c.y+c.h){
+      var km=kennelMeshes.find(function(k){return k.key===c.key;});
+      if(km){selectedKennel=km;focusKennel(km);refreshAllKennels();openPanel(km);updateBreadcrumb(km.side,km.row+1,km.col+1);}
+      return;
+    }
+  }
+}
+
+// ================================================================
+// HEATMAP OVERLAY
+// ================================================================
+function toggleHeatmap() {
+  heatmapVisible=!heatmapVisible;
+  document.getElementById('heatmap-toggle-btn').classList.toggle('active',heatmapVisible);
+  var overlay=document.getElementById('heatmap-overlay');
+  overlay.classList.toggle('show', heatmapVisible);
+  if(heatmapVisible) drawHeatmap();
+}
+
+function drawHeatmap() {
+  var cvs=document.getElementById('heatmap-main-canvas');
+  var wrap=document.getElementById('canvas-wrap');
+  // Size canvas to match canvas-wrap
+  cvs.style.position='absolute'; cvs.style.top='0'; cvs.style.left='0';
+  cvs.width=wrap.clientWidth; cvs.height=wrap.clientHeight;
+  var ctx=cvs.getContext('2d');
+  ctx.clearRect(0,0,cvs.width,cvs.height);
+
+  // Project ALL kennel levels to screen
+  kennelMeshes.forEach(function(km){
+    var p=kennelData[km.key]||null;
+    var st=getPatientStatus(p);
+    if(st==='empty') return;
+
+    var worldPos=new THREE.Vector3(km.x,km.y,km.z);
+    var screenPos=worldPos.clone().project(camera);
+    if(screenPos.z>=1) return; // behind camera
+    var sx=(screenPos.x+1)/2*cvs.width;
+    var sy=(-screenPos.y+1)/2*cvs.height;
+    // Clip to canvas bounds
+    if(sx<-100||sx>cvs.width+100||sy<-100||sy>cvs.height+100) return;
+
+    var maxSev=0;(p.conditions||[]).forEach(function(c){if(c.severity>maxSev)maxSev=c.severity;});
+    var hasFever=p.temp>39.5;
+    // Level 1 is upper stack — slightly smaller radius
+    var rBase=maxSev>=3||hasFever?70:maxSev>=2?50:35;
+    var r=km.level>0?rBase*0.7:rBase;
+    var colStr=maxSev>=3||hasFever?'255,61,61':maxSev>=2?'255,204,0':'0,230,118';
+
+    var grad=ctx.createRadialGradient(sx,sy,0,sx,sy,r);
+    grad.addColorStop(0,'rgba('+colStr+','+(km.level>0?0.35:0.45)+')');
+    grad.addColorStop(1,'rgba('+colStr+',0)');
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+    ctx.fillStyle=grad; ctx.fill();
+
+    // Label — level indicator
+    ctx.fillStyle='rgba('+colStr+',0.95)';
+    ctx.font='bold '+(km.level>0?9:10)+'px Share Tech Mono,monospace';
+    ctx.textAlign='center';
+    ctx.fillText(p.name+(km.level>0?' ▲':''), sx, sy+2);
+    // Temp
+    ctx.font='8px Share Tech Mono,monospace';
+    ctx.fillStyle='rgba('+colStr+',0.7)';
+    ctx.fillText(p.temp.toFixed(1)+'°C', sx, sy+12);
+  });
+
+  // Click handler — find nearest kennel across ALL levels
+  cvs.onclick=function(e){
+    if(!heatmapVisible) return;
+    var rect=cvs.getBoundingClientRect();
+    var mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    var best=null, bestDist=60;
+    kennelMeshes.forEach(function(km){
+      var wp=new THREE.Vector3(km.x,km.y,km.z);
+      var sp=wp.clone().project(camera);
+      if(sp.z>=1) return;
+      var sx=(sp.x+1)/2*cvs.width, sy=(-sp.y+1)/2*cvs.height;
+      var dist=Math.hypot(mx-sx,my-sy);
+      if(dist<bestDist){bestDist=dist;best=km;}
+    });
+    if(best){selectedKennel=best;focusKennel(best);refreshAllKennels();openPanel(best);updateBreadcrumb(best.side,best.row+1,best.col+1);}
+  };
+}
+
+// ================================================================
+// VIEW TOGGLE
+// ================================================================
+function setView(v) {
+  currentView=v;
+  document.getElementById('btn-view-3d').classList.toggle('active',v==='3d');
+  document.getElementById('btn-view-top').classList.toggle('active',v==='top');
+  if(v==='top'){camState.h=0;camState.v=1.4;camState.dist=18;camTarget.set(0,0,0);updateCamera();}
+  else resetCamera();
+  if(heatmapVisible) setTimeout(drawHeatmap,200);
+}
+
+// ================================================================
+// ANIMATION LOOP
+// ================================================================
+var animT=0;
+function animate() {
+  requestAnimationFrame(animate);
+  var dt=clock?clock.getDelta():0.016; animT+=dt;
+
+  // Stage animation — move kennel group
+  updateStageAnimation(dt);
+  // Apply drag rotation to staged cage
+  if(stageKm && stageActive){
+    stageKm.group.rotation.y = stageRotY;
+    stageKm.group.rotation.x = stageRotX;
+  } else if(stageKm){
+    // Smoothly zero out rotation during return
+    stageKm.group.rotation.y *= 0.9;
+    stageKm.group.rotation.x *= 0.9;
+  }
+  // Stage model (cat/dog) breathing + tail wag
+  updateStageModelAnim(animT);
+  // Walkout animation (patient steps out, spins, returns)
+  updateWalkout(dt);
+
+  // Stage spotlight — fade in when active
+  if(window._stageSpot){
+    var targetInt = (stageActive||stageAnimating) ? 3.5 : 0;
+    window._stageSpot.intensity += (targetInt - window._stageSpot.intensity) * 0.08;
+  }
+  // Stage ring — pulse when active, dim otherwise
+  if(window._stageRingMat){
+    var ringTarget = (stageActive||stageAnimating) ? (0.5 + Math.abs(Math.sin(animT*2))*0.5) : 0.18;
+    window._stageRingMat.emissiveIntensity += (ringTarget - window._stageRingMat.emissiveIntensity) * 0.1;
+    window._stageRingMat.opacity += (((stageActive||stageAnimating)?0.75:0.35) - window._stageRingMat.opacity) * 0.08;
+  }
+
+  // Camera: when stage is active, lerp to front-stage position.
+  // During walkout, pull camera back so full patient body fits in frame.
+  if(stageActive || stageAnimating) {
+    var camTargetPosStage = STAGE_CAM_POS;
+    if(walkoutState){
+      // Pull back and up so the walking patient + cage both fit
+      if(!window._walkoutCamPos) window._walkoutCamPos = new THREE.Vector3(0, 2.0, 9.5);
+      camTargetPosStage = window._walkoutCamPos;
+    }
+
+    camera.position.lerp(camTargetPosStage, 0.06);
+    var lookTarget = STAGE_CENTER;
+    if(walkoutState){
+      if(!window._walkoutLook) window._walkoutLook = new THREE.Vector3(0, 0.9, 3.3);
+      lookTarget = window._walkoutLook;
+    }
+    camTarget.lerp(lookTarget, 0.06);
+    camera.lookAt(camTarget);
+    // Re-frame: use setViewOffset so the cage sits centered in the visible band
+    // between the topbar and the bottom sheet.
+    applyStageViewOffset();
+  } else {
+    camera.position.lerp(camTargetPos, 0.08);
+    camera.lookAt(camTarget);
+    if(camera.view && camera.view.enabled) camera.clearViewOffset();
+  }
+
+  var pulse=Math.abs(Math.sin(animT*2.5));
+  kennelMeshes.forEach(function(km){
+    var p=kennelData[km.key]||null;
+    if(!p) return;
+    var maxSev=0;(p.conditions||[]).forEach(function(c){if(c.severity>maxSev)maxSev=c.severity;});
+    var isCrit=maxSev>=3||p.temp>39.5;
+    if(isCrit){km.interior.material.emissiveIntensity=0.15+pulse*0.45;km.statusLight.material.emissiveIntensity=0.4+pulse*0.7;}
+    var isWarn=maxSev===2&&!isCrit;
+    if(isWarn){km.interior.material.emissiveIntensity=0.1+Math.abs(Math.sin(animT*1.2))*0.25;}
+  });
+  if(heatmapVisible) drawHeatmap();
+  positionStageHUD();
+  renderer.render(scene,camera);
+}
+
+// ================================================================
+// DATA LOADING
+// ================================================================
+function loadDemo() {
+  var csv=[
+    'id,name,species,temp,heartRate,status,part,condition,severity,kennel',
+    '001,Buddy,dog,39.8,122,warning,left_leg,fracture,3,LEFT-0-0-0',
+    '001,Buddy,dog,39.8,122,warning,head,laceration,2,LEFT-0-0-0',
+    '002,Luna,cat,38.4,98,normal,body,healthy,1,LEFT-0-1-0',
+    '003,Max,dog,40.3,145,critical,right_leg,severe_injury,3,LEFT-1-0-0',
+    '003,Max,dog,40.3,145,critical,body,fever_symptoms,3,LEFT-1-0-0',
+    '004,Mochi,cat,38.1,94,normal,body,healthy,1,RIGHT-0-0-0',
+    '005,Rex,dog,39.1,108,warning,head,ear_infection,2,RIGHT-1-2-0',
+    '006,Bella,dog,40.1,135,critical,body,infection,3,RIGHT-2-1-0',
+    '007,Koko,cat,38.3,96,normal,body,healthy,1,LEFT-2-2-0',
+    '008,Toby,dog,38.9,110,warning,tail,wound,2,LEFT-3-1-0',
+    '009,Nala,cat,39.6,118,warning,left_leg,sprain,2,RIGHT-3-0-0',
+    '010,Bruno,dog,38.5,105,normal,body,healthy,1,LEFT-0-2-0',
+    '011,Coco,cat,38.0,92,normal,body,healthy,1,RIGHT-0-3-0',
+    '012,Zeus,dog,40.5,150,critical,head,trauma,3,LEFT-4-0-0',
+    '012,Zeus,dog,40.5,150,critical,right_leg,fracture,3,LEFT-4-0-0',
+    '013,Mia,cat,39.2,102,warning,body,post_surgery,2,LEFT-0-0-1',
+    '014,Dino,dog,40.2,138,critical,head,concussion,3,RIGHT-0-1-1',
+    '015,Lulu,cat,38.2,96,normal,body,healthy,1,RIGHT-1-0-1',
+    '016,Simba,dog,38.7,108,normal,tail,bruise,1,LEFT-1-1-1',
+    '017,Thumper,rabbit,39.0,220,warning,left_leg,sprain,2,RIGHT-2-0-0',
+    '018,Snow,rabbit,38.6,210,normal,body,healthy,1,RIGHT-4-1-0',
+    '019,Tweety,bird,41.5,420,critical,left_leg,wing_injury,3,RIGHT-3-2-0',
+    '020,Kiwi,bird,40.8,400,warning,head,feather_loss,2,RIGHT-4-3-0',
+    '021,Nibbles,rabbit,38.8,215,normal,body,healthy,1,LEFT-2-3-0',
+    '022,Sky,bird,40.5,390,warning,body,respiratory,2,LEFT-3-3-1',
+  ].join('\n');
+  var parsed=Papa.parse(csv,{header:true,skipEmptyLines:true});
+  processCSV(parsed.data);
+}
+
+function handleFile(e) {
+  var file=e.target.files[0]; if(!file) return;
+  Papa.parse(file,{header:true,skipEmptyLines:true,complete:function(r){processCSV(r.data);}});
+}
+
+function processCSV(rows) {
+  kennelData={};
+  var grouped={};
+  rows.forEach(function(r){
+    if(!r.id) return;
+    var kennelKey=r.kennel?r.kennel.trim():null;
+    if(!kennelKey){
+      var idx=Object.keys(grouped).indexOf(r.id);
+      if(idx<0){idx=Object.keys(grouped).length;}
+      var side=idx<10?'LEFT':'RIGHT';
+      var pos=idx%10; var row=Math.floor(pos/WARD_CONFIG.cols); var col=pos%WARD_CONFIG.cols;
+      kennelKey=side+'-'+row+'-'+col+'-0';
+    }
+    if(!grouped[r.id]){grouped[r.id]={id:r.id,name:r.name||'Unknown',species:r.species||'dog',temp:parseFloat(r.temp)||38.5,heartRate:parseFloat(r.heartRate)||100,status:r.status||'normal',conditions:[],kennelKey:kennelKey};}
+    if(r.part&&r.part.trim()){grouped[r.id].conditions.push({part:r.part.trim(),condition:r.condition||'?',severity:parseInt(r.severity)||0});}
+  });
+  Object.values(grouped).forEach(function(p){
+    kennelData[p.kennelKey]=p;
+    // Auto-log admission if no history yet
+    if(!patientHistory[p.id]||patientHistory[p.id].length===0){
+      var st=getPatientStatus(p);
+      logHistory(p.id, st==='crit'?'crit':st==='warn'?'warn':'info', 'ADMIT', 'Admitted · '+p.species.toUpperCase()+' · '+p.temp.toFixed(1)+'°C · '+p.heartRate+' bpm');
+      if(p.temp>39.5) logHistory(p.id,'crit','FEVER','Temperature '+p.temp.toFixed(1)+'°C exceeds 39.5°C threshold');
+      (p.conditions||[]).forEach(function(c){
+        if(c.severity>=3) logHistory(p.id,'crit','SEV3',c.part.replace(/_/g,' ')+': '+c.condition);
+        else if(c.severity>=2) logHistory(p.id,'warn','SEV2',c.part.replace(/_/g,' ')+': '+c.condition);
+      });
+    }
+  });
+  refreshAllKennels();
+}
+
+// ================================================================
+// EXPORT CSV
+// ================================================================
+function exportCSV() {
+  var rows=['id,name,species,temp,heartRate,status,part,condition,severity,kennel'];
+  Object.values(kennelData).forEach(function(p){
+    if(p.conditions&&p.conditions.length){
+      p.conditions.forEach(function(c){
+        rows.push([p.id,p.name,p.species,p.temp.toFixed(1),p.heartRate,p.status,c.part,c.condition,c.severity,p.kennelKey].join(','));
+      });
+    } else {
+      rows.push([p.id,p.name,p.species,p.temp.toFixed(1),p.heartRate,p.status,'body','healthy',1,p.kennelKey].join(','));
+    }
+  });
+  var blob=new Blob([rows.join('\n')],{type:'text/csv'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='vetward_export_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('CSV exported ✓');
+}
+
+// ================================================================
+// CLOCK
+// ================================================================
+function updateClock() {
+  var n=new Date();
+  document.getElementById('tb-clock').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+}
+
+// ================================================================
+// MODAL (placeholder for future use)
+// ================================================================
+function closeModal() { document.getElementById('modal-overlay').classList.remove('show'); }
+
+// ================================================================
+// CLOSE SEARCH ON OUTSIDE CLICK
+// ================================================================
+document.addEventListener('click',function(e){
+  if(!e.target.closest('#search-wrap')&&!e.target.closest('#search-results'))
+    document.getElementById('search-results').style.display='none';
+});
+
+// ================================================================
+// MOBILE UI — drawer, tabs, search toggle, zoom buttons, critical sheet
+// ================================================================
+
+function mbOpenDrawer(){
+  document.getElementById('mb-drawer').classList.add('open');
+  document.getElementById('mb-drawer-backdrop').classList.add('show');
+}
+function mbCloseDrawer(){
+  document.getElementById('mb-drawer').classList.remove('open');
+  document.getElementById('mb-drawer-backdrop').classList.remove('show');
+}
+
+function mbToggleSearch(){
+  var input=document.getElementById('search-input');
+  if(input.classList.contains('mb-show')){
+    if(input.value.trim()){ execSearch(); }
+    input.classList.remove('mb-show');
+    input.blur();
+  } else {
+    input.classList.add('mb-show');
+    setTimeout(function(){ input.focus(); },100);
+  }
+}
+
+function mbToggleMinimap(){
+  var mm=document.getElementById('minimap');
+  var fab=document.getElementById('mb-minimap-fab');
+  var isOpen = mm.classList.toggle('show');
+  fab.classList.toggle('active', isOpen);
+  // Redraw minimap when opened (in case data changed)
+  if(isOpen && typeof drawMinimap==='function') drawMinimap();
+}
+
+function mbZoom(direction){
+  // direction: -1 = zoom in, +1 = zoom out
+  camState.dist = Math.max(4, Math.min(22, camState.dist + direction*1.2));
+  var slider=document.getElementById('zoom-slider');
+  if(slider) slider.value = camState.dist;
+  updateCamera();
+}
+
+// Mobile nav tab selection
+function mbSelectTab(tab){
+  document.querySelectorAll('.mb-nav-tab').forEach(function(t){
+    t.classList.toggle('active', t.dataset.tab===tab);
+  });
+  if(tab==='wards'){
+    // Close all sheets, show 3D
+    mbCloseAllSheets();
+  } else if(tab==='critical'){
+    mbOpenCritical();
+  } else if(tab==='inspect'){
+    // Try to trigger walkout on current staged patient
+    if(stageActive && stageModel){
+      startWalkout();
+    } else {
+      showToast('Select a patient first');
+      // Revert active tab
+      setTimeout(function(){ mbSelectTab('wards'); },100);
+    }
+  } else if(tab==='filters'){
+    mbOpenDrawer();
+    // Revert active tab
+    setTimeout(function(){
+      document.querySelectorAll('.mb-nav-tab').forEach(function(t){
+        t.classList.toggle('active', t.dataset.tab==='wards');
+      });
+    },400);
+  }
+}
+
+// ----- CRITICAL ALERTS SHEET -----
+function mbOpenCritical(){
+  mbRenderCritical();
+  document.getElementById('mb-critical-sheet').classList.add('open');
+  document.getElementById('mb-sheet-backdrop').classList.add('show');
+}
+function mbCloseCritical(){
+  document.getElementById('mb-critical-sheet').classList.remove('open');
+  document.getElementById('mb-sheet-backdrop').classList.remove('show');
+  mbSelectTab('wards');
+}
+
+function mbRenderCritical(){
+  var body=document.getElementById('mb-critical-body');
+  var crits=[], warns=[];
+  Object.values(kennelData).forEach(function(p){
+    var st=getPatientStatus(p);
+    if(st==='crit') crits.push(p);
+    else if(st==='warn') warns.push(p);
+  });
+  if(crits.length+warns.length===0){
+    body.innerHTML='<div class="mb-crit-empty">&#10003; All patients stable</div>';
+    return;
+  }
+  var html='';
+  function row(p, cls, label){
+    html+='<div class="mb-crit-item '+cls+'" onclick="mbJumpFromCritical(\''+p.kennelKey+'\')">';
+    html+='<span class="dot"></span>';
+    html+='<div class="body">';
+    html+='<div class="name">'+p.name+' <span style="color:var(--muted);font-weight:400">· '+p.species.toUpperCase()+'</span></div>';
+    html+='<div class="meta">'+label+' · '+cToF(p.temp).toFixed(1)+'°F · '+p.heartRate+'bpm · '+p.kennelKey+'</div>';
+    html+='</div>';
+    html+='<span class="chev">&#10095;</span>';
+    html+='</div>';
+  }
+  crits.forEach(function(p){ row(p,'crit','CRITICAL'); });
+  warns.forEach(function(p){ row(p,'warn','WARNING'); });
+  body.innerHTML=html;
+}
+
+function mbJumpFromCritical(kennelKey){
+  mbCloseCritical();
+  setTimeout(function(){ jumpToPatient(kennelKey); }, 250);
+}
+
+// Close ALL sheets (drawer stays independent)
+function mbCloseAllSheets(){
+  document.getElementById('side-panel').classList.remove('open');
+  document.getElementById('dt-panel').classList.remove('open');
+  document.getElementById('mb-critical-sheet').classList.remove('open');
+  document.getElementById('mb-sheet-backdrop').classList.remove('show');
+  // Also close the stage if active
+  if(stageActive) closePanel();
+}
+
+// ----- Drawer filter chips -----
+function mbToggleFilter(status){
+  filterByStatus(status);
+  // Update chip active states
+  document.querySelectorAll('.mb-filter-chip[data-st]').forEach(function(c){
+    c.classList.toggle('active', filterStatus===c.dataset.st);
+  });
+}
+
+function mbFilterSide(side){
+  document.getElementById('sel-side').value = side;
+  navSelect();
+  mbCloseDrawer();
+}
+
+function mbUpdateViewChips(){
+  document.getElementById('mb-view-3d').classList.toggle('active', currentView==='3d');
+  document.getElementById('mb-view-top').classList.toggle('active', currentView==='top');
+}
+
+// ----- Keep bottom-nav badge count in sync with notifications -----
+function mbUpdateCritBadge(){
+  var crit=0, warn=0;
+  Object.values(kennelData).forEach(function(p){
+    var st=getPatientStatus(p);
+    if(st==='crit') crit++;
+    else if(st==='warn') warn++;
+  });
+  var badge=document.getElementById('mb-crit-badge');
+  var tab=document.querySelector('.mb-nav-tab[data-tab="critical"]');
+  if(crit+warn>0){
+    badge.textContent = (crit+warn);
+    tab.classList.add('has-alert');
+  } else {
+    tab.classList.remove('has-alert');
+  }
+  // Also update drawer chips
+  var sOk=document.getElementById('st-ok'), sW=document.getElementById('st-warn'),
+      sC=document.getElementById('st-crit'), sE=document.getElementById('st-empty');
+  if(sOk) document.getElementById('st-ok-chip').textContent = sOk.textContent;
+  if(sW) document.getElementById('st-warn-chip').textContent = sW.textContent;
+  if(sC) document.getElementById('st-crit-chip').textContent = sC.textContent;
+  if(sE) document.getElementById('st-empty-chip').textContent = sE.textContent;
+}
+
+// Hook into existing updateNotifBadge to also refresh mobile UI
+if(typeof updateNotifBadge === 'function'){
+  var _origUpdateNotif = updateNotifBadge;
+  updateNotifBadge = function(crit, warn){
+    _origUpdateNotif(crit, warn);
+    mbUpdateCritBadge();
+    // Re-render critical sheet if open
+    if(document.getElementById('mb-critical-sheet').classList.contains('open')){
+      mbRenderCritical();
+    }
+  };
+}
+
+// ----- When side-panel or dt-panel opens, show shared backdrop -----
+(function(){
+  var sp = document.getElementById('side-panel');
+  var dt = document.getElementById('dt-panel');
+  var bd = document.getElementById('mb-sheet-backdrop');
+  function syncBackdrop(){
+    var anyOpen = sp.classList.contains('open') || dt.classList.contains('open')
+                  || document.getElementById('mb-critical-sheet').classList.contains('open');
+    bd.classList.toggle('show', anyOpen);
+  }
+  // Observe class changes on these panels
+  var observer = new MutationObserver(syncBackdrop);
+  observer.observe(sp, {attributes:true, attributeFilter:['class']});
+  observer.observe(dt, {attributes:true, attributeFilter:['class']});
+  observer.observe(document.getElementById('mb-critical-sheet'), {attributes:true, attributeFilter:['class']});
+})();
+
+// ----- Prevent iOS bounce / pull-to-refresh on canvas, allow inside sheets -----
+document.addEventListener('touchmove', function(e){
+  var inScroll = e.target.closest('#sp-body, #dt-body, #mb-critical-body, #mb-drawer, #tb-notif-panel, #search-results');
+  if(!inScroll){ e.preventDefault(); }
+}, {passive:false});
+
+// ----- Swipe-down-to-close on bottom sheets -----
+(function(){
+  var touchStartY = null;
+  var targetSheet = null;
+  function onStart(e, sheet){
+    if(e.touches.length!==1) return;
+    var y=e.touches[0].clientY;
+    // Only start drag if touching within top ~50px of the sheet (where drag handle is)
+    var rect = sheet.getBoundingClientRect();
+    if(y - rect.top > 60) return;
+    touchStartY = y;
+    targetSheet = sheet;
+  }
+  function onMove(e){
+    if(touchStartY===null || !targetSheet) return;
+    var dy = e.touches[0].clientY - touchStartY;
+    if(dy > 0){
+      targetSheet.style.transform = 'translateY('+dy+'px)';
+    }
+  }
+  function onEnd(e){
+    if(touchStartY===null || !targetSheet) return;
+    var dy = (e.changedTouches[0].clientY) - touchStartY;
+    targetSheet.style.transform = '';
+    if(dy > 80){
+      if(targetSheet.id==='side-panel' || targetSheet.id==='dt-panel'){
+        closePanel();
+      } else if(targetSheet.id==='mb-critical-sheet'){
+        mbCloseCritical();
+      }
+    }
+    touchStartY = null;
+    targetSheet = null;
+  }
+  ['side-panel','dt-panel','mb-critical-sheet'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('touchstart', function(e){ onStart(e, el); }, {passive:true});
+    el.addEventListener('touchmove', onMove, {passive:true});
+    el.addEventListener('touchend', onEnd, {passive:true});
+  });
+})();
+
+
+// ================================================================
+// BOOT
+// ================================================================
+window.addEventListener('load',init);
+
+</script>
+</body>
+</html>
